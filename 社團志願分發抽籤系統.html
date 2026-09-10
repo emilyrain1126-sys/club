@@ -90,7 +90,13 @@
                 <i data-lucide="file-spreadsheet" class="w-5 h-5 text-indigo-600"></i>
                 上傳 Excel 檔案（.xlsx / .xls）
               </h2>
-              <span class="text-xs text-slate-500 font-medium">支援單檔內含 3 個工作表</span>
+              <div class="flex items-center gap-2">
+                <button id="btn-download-sample" type="button" class="px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer" title="下載包含 3 個標準工作表的示範 Excel 檔案">
+                  <i data-lucide="file-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                  <span>下載範例 Excel 檔</span>
+                </button>
+                <span class="text-xs text-slate-500 font-medium hidden sm:inline">支援單檔內含 3 個工作表</span>
+              </div>
             </div>
 
             <!-- Drop Zone -->
@@ -1750,6 +1756,95 @@
     document.getElementById('btn-restart').addEventListener('click', () => {
       switchStep(1);
     });
+
+    // 下載標準範例 Excel 檔案 (包含 3 個工作表)
+    function downloadSampleExcel() {
+      try {
+        const wb = XLSX.utils.book_new();
+
+        // 1. 全校學生名單 (含一般生、特殊身分生、未選社生)
+        const s1Data = [
+          ['班級', '座號', '姓名', '特殊身分'],
+          ['701', '1', '江宸琳', ''],
+          ['701', '2', '林宇恩', ''],
+          ['701', '3', '陳柏翰', '體育班'],
+          ['701', '4', '張祐齊', ''],
+          ['701', '5', '黃詩涵', '資優社'],
+          ['701', '6', '王若曦', ''],
+          ['701', '7', '李冠廷', ''],
+          ['701', '8', '劉子睿', ''],
+          ['701', '9', '楊舒雅', ''],
+          ['701', '10', '吳承澤', ''],
+          ['702', '1', '蔡語晨', ''],
+          ['702', '2', '鄭又寧', ''],
+          ['702', '3', '謝秉宏', ''],
+          ['702', '4', '許維恩', '音樂班'],
+          ['702', '5', '趙家豪', ''],
+          ['702', '6', '孫芷晴', ''],
+          ['702', '7', '郭政翰', ''],
+          ['702', '8', '周品妤', ''],
+          ['702', '9', '葉俊凱', ''],
+          ['702', '10', '洪采薇', '']
+        ];
+        const ws1 = XLSX.utils.aoa_to_sheet(s1Data);
+        ws1['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 18 }];
+        XLSX.utils.book_append_sheet(wb, ws1, '全校學生名單');
+
+        // 2. 選社志願序 (部分學生志願競爭、特殊身分生填志願(測試免排)、未填選社生)
+        const s2Data = [
+          ['班級', '座號', '姓名', '第1志願', '第2志願', '第3志願', '第4志願', '第5志願'],
+          ['701', '1', '江宸琳', '羽球社', '魔術社', '桌遊社', '熱舞社', '吉他社'],
+          ['701', '2', '林宇恩', '羽球社', '桌遊社', '籃球社', '大傳社', '動漫社'],
+          ['701', '3', '陳柏翰', '籃球社', '羽球社', '桌遊社', '熱舞社', '魔術社'], // 體育班 (即使填志願也不排)
+          ['701', '4', '張祐齊', '魔術社', '羽球社', '熱舞社', '吉他社', '桌遊社'],
+          ['701', '5', '黃詩涵', '桌遊社', '魔術社', '大傳社', '羽球社', '動漫社'], // 資優社 (即使填志願也不排)
+          ['701', '6', '王若曦', '羽球社', '魔術社', '熱舞社', '吉他社', '大傳社'],
+          ['701', '7', '李冠廷', '熱舞社', '羽球社', '魔術社', '桌遊社', '籃球社'],
+          ['701', '8', '劉子睿', '魔術社', '桌遊社', '吉他社', '動漫社', '羽球社'],
+          ['701', '9', '楊舒雅', '吉他社', '大傳社', '熱舞社', '魔術社', '桌遊社'],
+          ['701', '10', '吳承澤', '動漫社', '吉他社', '桌遊社', '羽球社', '大傳社'],
+          ['702', '1', '蔡語晨', '羽球社', '桌遊社', '魔術社', '熱舞社', '吉他社'],
+          ['702', '2', '鄭又寧', '桌遊社', '羽球社', '吉他社', '大傳社', '動漫社'],
+          ['702', '3', '謝秉宏', '魔術社', '羽球社', '籃球社', '桌遊社', '熱舞社'],
+          ['702', '4', '許維恩', '吉他社', '熱舞社', '大傳社', '桌遊社', '魔術社'], // 音樂班 (即使填志願也不排)
+          ['702', '5', '趙家豪', '籃球社', '羽球社', '桌遊社', '魔術社', '動漫社'],
+          ['702', '6', '孫芷晴', '熱舞社', '魔術社', '桌遊社', '吉他社', '大傳社'],
+          ['702', '7', '郭政翰', '羽球社', '籃球社', '動漫社', '吉他社', '魔術社'],
+          // 702 8號 周品妤 未選社 (測試最後一輪隨機安置)
+          ['702', '9', '葉俊凱', '大傳社', '動漫社', '吉他社', '桌遊社', '羽球社'],
+          ['702', '10', '洪采薇', '桌遊社', '熱舞社', '魔術社', '羽球社', '吉他社']
+        ];
+        const ws2 = XLSX.utils.aoa_to_sheet(s2Data);
+        ws2['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, ws2, '選社志願序');
+
+        // 3. 社團名稱與名額 (設定限定名額以觸發超額抽籤與後續志願遞補)
+        const s3Data = [
+          ['社團名稱', '可收人數上限'],
+          ['羽球社', 3], // 熱門社團 (申請人數多於名額，將觸發公平抽籤)
+          ['魔術社', 3], // 熱門社團 (將觸發公平抽籤)
+          ['桌遊社', 4],
+          ['熱舞社', 3],
+          ['吉他社', 3],
+          ['籃球社', 3],
+          ['大傳社', 3],
+          ['動漫社', 3]
+        ];
+        const ws3 = XLSX.utils.aoa_to_sheet(s3Data);
+        ws3['!cols'] = [{ wch: 18 }, { wch: 16 }];
+        XLSX.utils.book_append_sheet(wb, ws3, '社團名稱與名額');
+
+        // 下載檔案
+        const sampleFileName = '學生社團分發標準範本_3合1.xlsx';
+        XLSX.writeFile(wb, sampleFileName);
+        showToast(`已成功下載範例檔：${sampleFileName}`, 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('生成範例 Excel 失敗，請重試。', 'error');
+      }
+    }
+
+    document.getElementById('btn-download-sample')?.addEventListener('click', downloadSampleExcel);
 
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();

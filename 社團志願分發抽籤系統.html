@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>學生社團志願分發與抽籤系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-indigo-900 text-white shadow-md border-b border-indigo-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-indigo-700/70 rounded-lg flex items-center justify-center">
+          <i data-lucide="shuffle" class="w-6 h-6 text-indigo-200"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight">學生社團志願分發與抽籤系統</h1>
+          <p class="text-xs text-indigo-200">依志願順序抽籤 · 特殊身分直接免排 · 隨機補位機制</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs bg-indigo-800/90 text-indigo-200 px-3 py-1.5 rounded-lg border border-indigo-700 flex items-center gap-1.5">
+          <i data-lucide="shield-check" class="w-4 h-4 text-emerald-300"></i>
+          <span>Excel 三大資料表精準對齊</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workflow Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Process Step Navigation -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-center text-xs font-semibold">
+        <div id="step-tab-1" class="step-indicator active flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
+          <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[11px]">1</span>
+          <span>上傳檔案與分頁對應</span>
+        </div>
+        <div id="step-tab-2" class="step-indicator flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-slate-50 text-slate-400 border border-slate-200">
+          <span class="w-5 h-5 rounded-full bg-slate-300 text-white flex items-center justify-center text-[11px]">2</span>
+          <span>社團名額確認</span>
+        </div>
+        <div id="step-tab-3" class="step-indicator flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-slate-50 text-slate-400 border border-slate-200">
+          <span class="w-5 h-5 rounded-full bg-slate-300 text-white flex items-center justify-center text-[11px]">3</span>
+          <span>執行分發與抽籤</span>
+        </div>
+        <div id="step-tab-4" class="step-indicator flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-slate-50 text-slate-400 border border-slate-200">
+          <span class="w-5 h-5 rounded-full bg-slate-300 text-white flex items-center justify-center text-[11px]">4</span>
+          <span>分發結果與匯出</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1: Excel File Upload & 3-Sheet Mapping -->
+    <section id="step-section-1" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left: Upload Box -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                <i data-lucide="file-spreadsheet" class="w-5 h-5 text-indigo-600"></i>
+                上傳 Excel 檔案（.xlsx / .xls）
+              </h2>
+              <span class="text-xs text-slate-500 font-medium">支援單檔內含 3 個工作表</span>
+            </div>
+
+            <!-- Drop Zone -->
+            <div id="drop-zone" class="border-2 border-dashed border-indigo-200 hover:border-indigo-500 rounded-xl p-8 text-center bg-indigo-50/20 hover:bg-indigo-50/50 transition-all cursor-pointer">
+              <input type="file" id="file-input" accept=".xlsx, .xls" class="hidden" />
+              <div class="flex flex-col items-center justify-center space-y-3">
+                <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                  <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-slate-700">點擊此處或拖曳 Excel 檔案至此</p>
+                  <p class="text-xs text-slate-400 mt-1">支援讀取 115選社.xlsx 等檔案格式</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload File Info Card -->
+            <div id="file-loaded-info" class="hidden mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <i data-lucide="file-check" class="w-5 h-5 text-emerald-600"></i>
+                <div>
+                  <p id="file-name-text" class="text-xs font-semibold text-emerald-900">115選社.xlsx</p>
+                  <p id="file-meta-text" class="text-[11px] text-emerald-700">讀取中...</p>
+                </div>
+              </div>
+              <span class="text-xs bg-emerald-200 text-emerald-800 font-medium px-2 py-0.5 rounded">解析完成</span>
+            </div>
+
+            <!-- 3-Component Sheet Selector Panel -->
+            <div id="sheet-selector-panel" class="hidden mt-4 p-4 bg-slate-50 border border-indigo-200 rounded-xl space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="layers" class="w-4 h-4 text-indigo-600"></i>
+                  <span class="text-xs font-bold text-slate-800">Excel 三大資料分頁（工作表）對應設定：</span>
+                </div>
+                <span class="text-[11px] text-indigo-600 font-medium">系統已自動偵測，可隨時手動切換</span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- 1. 全校學生名單 -->
+                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <label class="block text-[11px] font-bold text-indigo-900 mb-1 flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block"></span>
+                    1. 全校學生名單
+                  </label>
+                  <p class="text-[10px] text-slate-400 mb-1.5 leading-tight">含：班級、座號、姓名、特殊身分</p>
+                  <select id="select-roster-sheet" class="w-full text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 font-medium bg-slate-50"></select>
+                </div>
+
+                <!-- 2. 學生選社志願序 -->
+                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <label class="block text-[11px] font-bold text-sky-900 mb-1 flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block"></span>
+                    2. 選社志願序
+                  </label>
+                  <p class="text-[10px] text-slate-400 mb-1.5 leading-tight">含：班級、座號、姓名、各志願</p>
+                  <select id="select-choices-sheet" class="w-full text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 font-medium bg-slate-50"></select>
+                </div>
+
+                <!-- 3. 社團名稱與名額 -->
+                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <label class="block text-[11px] font-bold text-emerald-900 mb-1 flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                    3. 社團名稱與名額
+                  </label>
+                  <p class="text-[10px] text-slate-400 mb-1.5 leading-tight">含：社團名稱、可收學生數量</p>
+                  <select id="select-quota-sheet" class="w-full text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 font-medium bg-slate-50"></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Direct Exclusion Policy Info (Rule 5) -->
+          <div class="mt-6 pt-4 border-t border-slate-100">
+            <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs space-y-1.5">
+              <div class="flex items-center gap-2 text-amber-900 font-bold">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i>
+                特殊身分學生直接不排社團規則（規則 5）
+              </div>
+              <p class="text-amber-800 leading-relaxed text-[11px]">
+                全校學生名單中若<b>「特殊身分」</b>欄位有任何註記（如：資優社、體育班、音樂班等），系統<b>一律直接排除分發、不排任何社團</b>。<b>即使該學生在選社清單中有填寫志願序，也絕對不安排社團</b>，保障社團實際名額！
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Rule Summary Card -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <i data-lucide="list-ordered" class="w-4 h-4 text-indigo-600"></i>
+              分發規則與演算法標準
+            </h3>
+            <ol class="space-y-2.5 text-xs text-slate-600 list-decimal list-inside leading-relaxed">
+              <li class="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                <strong class="text-slate-800">第一輪分發：</strong>開放所有社團，依學生<b>第一志願</b>排序。若申請超過名額上限，以<b>公平抽籤</b>方式錄取。
+              </li>
+              <li class="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                <strong class="text-slate-800">第二輪分發：</strong>僅開放<b>尚未額滿之社團</b>，對上一輪落選學生依<b>第二志願</b>排序與抽籤。
+              </li>
+              <li class="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                <strong class="text-slate-800">依此類推：</strong>依第三、第四等後續志願逐輪篩選，直至全部志願審查完畢。
+              </li>
+              <li class="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                <strong class="text-slate-800">特殊狀況（未選社/落選）：</strong>若有<b>未選社學生</b>或志願皆未錄取者，於<b>最後一輪隨機補位</b>安排至有名額社團。
+              </li>
+              <li class="p-2 rounded-lg bg-amber-50/70 border border-amber-200 text-amber-900">
+                <strong class="text-amber-950">特殊身分不排社團：</strong>名單中註記特殊身分者（資優社、體育班、音樂班等），直接排除不排社團。
+              </li>
+            </ol>
+          </div>
+
+          <button id="btn-goto-step-2" disabled class="mt-4 w-full py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-semibold text-xs shadow-sm transition-all flex items-center justify-center gap-2">
+            <span>確認名單，下一步：檢查社團名額</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Raw Data Preview Table -->
+      <div id="data-preview-card" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="table" class="w-5 h-5 text-indigo-600"></i>
+              全校名單與志願串聯比對結果 (<span id="student-count-badge" class="text-indigo-600 font-bold">0</span> 人)
+            </h3>
+            <p class="text-xs text-slate-500">系統已依「班級 + 座號 / 姓名」自動比對選社志願與特殊身分。</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative w-48">
+              <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400"></i>
+              <input type="text" id="preview-search-input" placeholder="搜尋學生或班級..." class="w-full pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            </div>
+            <span class="px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100 text-xs">已填志願：<span id="badge-has-choices">0</span> 人</span>
+            <span class="px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 font-semibold border border-rose-100 text-xs">未選社(待隨機)：<span id="badge-no-choices">0</span> 人</span>
+            <span class="px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 font-semibold border border-amber-200 text-xs">特殊身分(直接免排)：<span id="badge-exempt-students">0</span> 人</span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-72 custom-scrollbar">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-100 text-slate-700 font-semibold sticky top-0 z-10 border-b border-slate-200">
+              <tr>
+                <th class="p-2.5 w-12 text-slate-500">序號</th>
+                <th class="p-2.5 whitespace-nowrap">分發資格判定</th>
+                <th class="p-2.5 whitespace-nowrap">班級</th>
+                <th class="p-2.5 whitespace-nowrap">座號/學號</th>
+                <th class="p-2.5 whitespace-nowrap">姓名</th>
+                <th class="p-2.5 whitespace-nowrap">特殊身分註記</th>
+                <th class="p-2.5 whitespace-nowrap">選社填寫狀態</th>
+                <th class="p-2.5">選社志願序 (完整清單)</th>
+              </tr>
+            </thead>
+            <tbody id="student-preview-tbody" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Club Quotas Configuration & Overview -->
+    <section id="step-section-2" class="space-y-6 hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="pie-chart" class="w-5 h-5 text-indigo-600"></i>
+              社團清單與名額配額確認
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">系統已由「社團名稱與名額」工作表或志願清單自動載入，您可直接點擊數值微調人數上限。</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-back-to-step-1" class="px-3 py-1.5 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-600 transition-colors">
+              返回第一步
+            </button>
+            <button id="btn-goto-step-3" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm">
+              <span>確認名額，開始執行分發</span>
+              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <p class="text-[11px] text-slate-500 font-medium">總社團數</p>
+            <p id="stat-total-clubs" class="text-lg font-bold text-slate-800">0</p>
+          </div>
+          <div class="p-3 bg-indigo-50/70 rounded-lg border border-indigo-100">
+            <p class="text-[11px] text-indigo-600 font-medium">社團總招生名額</p>
+            <p id="stat-total-quota" class="text-lg font-bold text-indigo-700">0</p>
+          </div>
+          <div class="p-3 bg-emerald-50/70 rounded-lg border border-emerald-100">
+            <p class="text-[11px] text-emerald-600 font-medium">實際應分發學生數</p>
+            <p id="stat-students-to-distribute" class="text-lg font-bold text-emerald-700">0</p>
+          </div>
+          <div class="p-3 bg-amber-50/70 rounded-lg border border-amber-100">
+            <p class="text-[11px] text-amber-700 font-medium">特殊身分(免排人數)</p>
+            <p id="stat-exempt-count" class="text-lg font-bold text-amber-800">0</p>
+          </div>
+        </div>
+
+        <!-- Club Grid -->
+        <div class="mt-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">各社團名稱與名額設定</h3>
+            <div class="text-[11px] text-slate-400">若名額不符，可直接在框中修改數字</div>
+          </div>
+          <div id="club-config-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto custom-scrollbar p-1">
+            <!-- Club Cards via JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3: Distribution Execution & Lottery Simulator -->
+    <section id="step-section-3" class="space-y-6 hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="cpu" class="w-5 h-5 text-indigo-600"></i>
+              志願分發與抽籤進度監控
+            </h2>
+            <p class="text-xs text-slate-500">系統將依照規則 1 ~ 4 逐輪執行志願匹配、超額隨機抽籤與未選社補位。</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btn-start-simulation" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-2">
+              <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+              <span>開始執行分發與抽籤</span>
+            </button>
+            <button id="btn-view-results" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-2">
+              <span>下一步：檢視最終成果</span>
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Status Dashboard -->
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <span class="text-xs text-slate-500">目前輪次進度</span>
+            <div id="sim-current-round-text" class="text-xl font-black text-slate-800 mt-1">尚未開始</div>
+            <p id="sim-current-desc" class="text-[11px] text-slate-500 mt-1">請點選上方「開始執行分發」按鈕</p>
+          </div>
+          <div class="p-4 bg-indigo-50/70 rounded-xl border border-indigo-100">
+            <span class="text-xs text-indigo-700 font-medium">已成功分發人數</span>
+            <div class="text-xl font-black text-indigo-700 mt-1">
+              <span id="sim-assigned-count">0</span> / <span id="sim-target-count">0</span>
+            </div>
+            <div class="w-full bg-indigo-200 rounded-full h-2 mt-2">
+              <div id="sim-progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-100">
+            <span class="text-xs text-emerald-700 font-medium">剩餘社團總缺額</span>
+            <div id="sim-remaining-quota" class="text-xl font-black text-emerald-800 mt-1">0</div>
+            <p class="text-[11px] text-emerald-700 mt-1">社團額滿即於下一輪自動封閉</p>
+          </div>
+        </div>
+
+        <!-- Logs & Lottery Record Area -->
+        <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Left: Detailed Execution Logs -->
+          <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col h-96">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <i data-lucide="terminal" class="w-4 h-4 text-slate-500"></i>
+                分發歷程紀錄 (Audit Log)
+              </h3>
+              <span id="log-count-badge" class="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono">0 條紀錄</span>
+            </div>
+            <div id="sim-logs-container" class="flex-1 overflow-y-auto custom-scrollbar font-mono text-[11px] space-y-1.5 p-2 bg-slate-900 text-slate-100 rounded-lg">
+              <div class="text-slate-400 italic text-[11px]">系統就緒，準備啟動分發...</div>
+            </div>
+          </div>
+
+          <!-- Right: Lottery & Overflow Events -->
+          <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col h-96">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+                抽籤事件即時告示（超過名額之社團）
+              </h3>
+              <span class="text-[10px] text-amber-700 font-medium">公平隨機抽取</span>
+            </div>
+            <div id="sim-lottery-container" class="flex-1 overflow-y-auto custom-scrollbar space-y-2 p-2 bg-white border border-slate-200 rounded-lg">
+              <div class="text-center text-slate-400 text-xs py-12">
+                當某社團申請人數大於可收名額時，<br>抽籤明細與未中籤落選資訊將顯示於此。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 4: Final Results & Excel Export -->
+    <section id="step-section-4" class="space-y-6 hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-bold text-slate-800">社團志願分發完成</h2>
+              <span class="px-2.5 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">分發成功</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">所有學生均已妥善分配或排除，可匯出完整 Excel 報表供全校公告與存查。</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btn-restart" class="px-3 py-2 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-600 transition-colors">
+              重新分發
+            </button>
+            <button id="btn-export-excel" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-2">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>下載分發結果 Excel 報表</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Result Stats Cards -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+          <div class="p-3 bg-indigo-50/70 rounded-lg border border-indigo-100">
+            <p class="text-[11px] text-indigo-700 font-medium">第 1 志願錄取</p>
+            <p id="res-stat-rank1" class="text-lg font-bold text-indigo-800">0</p>
+            <span id="res-stat-rank1-pct" class="text-[10px] text-indigo-600">0%</span>
+          </div>
+          <div class="p-3 bg-sky-50/70 rounded-lg border border-sky-100">
+            <p class="text-[11px] text-sky-700 font-medium">第 2 志願錄取</p>
+            <p id="res-stat-rank2" class="text-lg font-bold text-sky-800">0</p>
+            <span id="res-stat-rank2-pct" class="text-[10px] text-sky-600">0%</span>
+          </div>
+          <div class="p-3 bg-blue-50/70 rounded-lg border border-blue-100">
+            <p class="text-[11px] text-blue-700 font-medium">第 3 志願(含)後錄取</p>
+            <p id="res-stat-rank3" class="text-lg font-bold text-blue-800">0</p>
+            <span id="res-stat-rank3-pct" class="text-[10px] text-blue-600">0%</span>
+          </div>
+          <div class="p-3 bg-rose-50/70 rounded-lg border border-rose-100">
+            <p class="text-[11px] text-rose-700 font-medium">未選社/落選隨機分發</p>
+            <p id="res-stat-random" class="text-lg font-bold text-rose-800">0</p>
+            <span class="text-[10px] text-rose-600">最後補位</span>
+          </div>
+          <div class="p-3 bg-amber-50/70 rounded-lg border border-amber-100 col-span-2 sm:col-span-1">
+            <p class="text-[11px] text-amber-800 font-medium">特殊身分免排社團</p>
+            <p id="res-stat-exempt" class="text-lg font-bold text-amber-900">0</p>
+            <span class="text-[10px] text-amber-700">體育/音樂/資優等</span>
+          </div>
+        </div>
+
+        <!-- Filter and Search -->
+        <div class="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div class="flex items-center space-x-1 border-b border-slate-200">
+            <button id="tab-res-all" class="res-tab active py-2 px-3 text-xs font-bold border-b-2 border-indigo-600 text-indigo-700">
+              全校分發結果總表
+            </button>
+            <button id="tab-res-byclub" class="res-tab py-2 px-3 text-xs font-medium text-slate-500 hover:text-slate-800">
+              依社團檢視名冊
+            </button>
+            <button id="tab-res-exempt" class="res-tab py-2 px-3 text-xs font-medium text-slate-500 hover:text-slate-800">
+              特殊身分免排名單
+            </button>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="relative w-full sm:w-60">
+              <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400"></i>
+              <input type="text" id="res-search-input" placeholder="搜尋學生姓名 / 班級 / 社團..." class="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Club Filter Buttons Container (Visible when byclub tab is active) -->
+        <div id="club-buttons-panel" class="hidden mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <span id="selected-club-summary-badge" class="text-xs font-bold text-indigo-900">目前顯示：全部社團</span>
+            <span class="text-[11px] text-slate-400">點擊按鈕可快速切換社團</span>
+          </div>
+          <div id="club-button-pills" class="flex flex-wrap gap-2 max-h-36 overflow-y-auto custom-scrollbar p-1">
+            <!-- Buttons rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Results Table Container -->
+        <div class="mt-3 overflow-x-auto border border-slate-200 rounded-xl max-h-96 custom-scrollbar">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-100 text-slate-700 font-semibold sticky top-0 z-10 border-b border-slate-200">
+              <tr id="res-table-header">
+                <th class="p-2.5 w-12 text-slate-500">序號</th>
+                <th class="p-2.5">班級</th>
+                <th class="p-2.5">座號/學號</th>
+                <th class="p-2.5">姓名</th>
+                <th class="p-2.5">特殊身分註記</th>
+                <th class="p-2.5">最終分發結果</th>
+                <th class="p-2.5">錄取志願序 / 方式</th>
+                <th class="p-2.5">分發輪次</th>
+              </tr>
+            </thead>
+            <tbody id="res-table-body" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <script>
+    // Global State Store
+    const state = {
+      rawStudents: [],        // Consolidated student records
+      clubsConfig: {},        // { clubName: { quota: 30, enrolled: [] } }
+      distributionLog: [],    // Audit log records
+      lotteryEvents: [],      // Overflow lottery records
+      finalResults: null,
+      currentStep: 1,
+      currentWorkbook: null,
+      currentFileName: '',
+      selectedRosterSheet: '',
+      selectedChoicesSheet: '',
+      selectedQuotaSheet: '',
+      selectedClubFilter: 'ALL' // For Step 4 club buttons filter
+    };
+
+    // Helper: Toast message (Never use alert)
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'bg-emerald-600 text-white border-emerald-700',
+        error: 'bg-rose-600 text-white border-rose-700',
+        warning: 'bg-amber-500 text-white border-amber-600',
+        info: 'bg-slate-800 text-white border-slate-900',
+      };
+
+      toast.className = `px-4 py-2.5 rounded-lg shadow-lg border text-xs font-medium flex items-center space-x-2 transition-all transform duration-300 opacity-0 translate-y-2 pointer-events-auto ${colors[type] || colors.info}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', 'translate-y-2');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-indigo-500', 'bg-indigo-50/60');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/60');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/60');
+      if (e.dataTransfer.files.length) {
+        handleFile(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          state.currentWorkbook = workbook;
+          state.currentFileName = file.name;
+          autoDetectAndProcessWorkbook(workbook, file.name);
+        } catch (err) {
+          console.error(err);
+          showToast('無法解析此 Excel 檔案，請確認檔案格式正常。', 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function autoDetectAndProcessWorkbook(workbook, fileName) {
+      const sheetNames = workbook.SheetNames;
+      if (!sheetNames || sheetNames.length === 0) {
+        showToast('此 Excel 檔案中沒有任何工作表！', 'error');
+        return;
+      }
+
+      let bestRosterSheet = sheetNames[0];
+      let bestChoicesSheet = sheetNames.length > 1 ? sheetNames[1] : sheetNames[0];
+      let bestQuotaSheet = sheetNames.length > 2 ? sheetNames[2] : '';
+
+      let maxRosterScore = -1;
+      let maxChoicesScore = -1;
+      let maxQuotaScore = -1;
+
+      sheetNames.forEach((sName) => {
+        const ws = workbook.Sheets[sName];
+        const previewRows = XLSX.utils.sheet_to_json(ws, { header: 1, range: 0, defval: '' }).slice(0, 10);
+        
+        let rosterScore = 0;
+        let choicesScore = 0;
+        let quotaScore = 0;
+
+        if (/全校|名冊|學生名單|名單|基本資料|學籍/i.test(sName)) rosterScore += 40;
+        if (/選社|志願|結果|填選|志願序|登記/i.test(sName)) choicesScore += 40;
+        if (/名額|社團清單|社團名額|人數|上限|Quota/i.test(sName)) quotaScore += 40;
+
+        previewRows.forEach(row => {
+          row.forEach(cell => {
+            const str = String(cell || '').trim();
+            if (/姓名|座號|班級|學號/i.test(str)) rosterScore += 10;
+            if (/特殊身分|身分|身份|專長|免排/i.test(str)) rosterScore += 25;
+            if (/志願|第.*志願|選社|志願序/i.test(str)) choicesScore += 25;
+            if (/名額|可收|人數上限|招收/i.test(str)) quotaScore += 25;
+          });
+        });
+
+        if (rosterScore > maxRosterScore) {
+          maxRosterScore = rosterScore;
+          bestRosterSheet = sName;
+        }
+        if (choicesScore > maxChoicesScore) {
+          maxChoicesScore = choicesScore;
+          bestChoicesSheet = sName;
+        }
+        if (quotaScore > maxQuotaScore) {
+          maxQuotaScore = quotaScore;
+          bestQuotaSheet = sName;
+        }
+      });
+
+      if (bestChoicesSheet === bestRosterSheet && sheetNames.length > 1) {
+        const other = sheetNames.find(s => s !== bestRosterSheet);
+        if (other) bestChoicesSheet = other;
+      }
+
+      state.selectedRosterSheet = bestRosterSheet;
+      state.selectedChoicesSheet = bestChoicesSheet;
+      state.selectedQuotaSheet = (bestQuotaSheet !== bestRosterSheet && bestQuotaSheet !== bestChoicesSheet) ? bestQuotaSheet : '';
+
+      setupSheetSelectorUI(sheetNames, state.selectedRosterSheet, state.selectedChoicesSheet, state.selectedQuotaSheet);
+      processThreeSheets();
+    }
+
+    function setupSheetSelectorUI(sheetNames, defRoster, defChoices, defQuota) {
+      const panel = document.getElementById('sheet-selector-panel');
+      const selRoster = document.getElementById('select-roster-sheet');
+      const selChoices = document.getElementById('select-choices-sheet');
+      const selQuota = document.getElementById('select-quota-sheet');
+
+      selRoster.innerHTML = '';
+      selChoices.innerHTML = '';
+      selQuota.innerHTML = '<option value="">(由志願序自動產生社團清單)</option>';
+
+      sheetNames.forEach((name, idx) => {
+        const optR = document.createElement('option');
+        optR.value = name;
+        optR.textContent = `${name} (分頁 ${idx + 1})`;
+        if (name === defRoster) optR.selected = true;
+        selRoster.appendChild(optR);
+
+        const optC = document.createElement('option');
+        optC.value = name;
+        optC.textContent = `${name} (分頁 ${idx + 1})`;
+        if (name === defChoices) optC.selected = true;
+        selChoices.appendChild(optC);
+
+        const optQ = document.createElement('option');
+        optQ.value = name;
+        optQ.textContent = `${name} (分頁 ${idx + 1})`;
+        if (name === defQuota) optQ.selected = true;
+        selQuota.appendChild(optQ);
+      });
+
+      selRoster.onchange = (e) => {
+        state.selectedRosterSheet = e.target.value;
+        processThreeSheets();
+        showToast(`已更新「全校學生名單」分頁為：${e.target.value}`, 'info');
+      };
+      selChoices.onchange = (e) => {
+        state.selectedChoicesSheet = e.target.value;
+        processThreeSheets();
+        showToast(`已更新「選社志願序」分頁為：${e.target.value}`, 'info');
+      };
+      selQuota.onchange = (e) => {
+        state.selectedQuotaSheet = e.target.value;
+        processThreeSheets();
+        showToast(`已更新「社團名稱與名額」分頁為：${e.target.value || '由志願序自動提取'}`, 'info');
+      };
+
+      panel.classList.remove('hidden');
+    }
+
+    function normalizeText(val) {
+      return String(val || '').trim().replace(/\s+/g, '');
+    }
+
+    function processThreeSheets() {
+      const wb = state.currentWorkbook;
+      if (!wb) return;
+
+      const rosterSheet = wb.Sheets[state.selectedRosterSheet];
+      const choicesSheet = wb.Sheets[state.selectedChoicesSheet];
+
+      if (!rosterSheet) {
+        showToast('找不到指定的全校學生名單工作表！', 'error');
+        return;
+      }
+
+      // 1. Parse Choices Map
+      const choicesMap = new Map();
+      const discoveredClubs = new Set();
+
+      if (choicesSheet) {
+        const choiceRows = XLSX.utils.sheet_to_json(choicesSheet, { header: 1, defval: '' });
+        if (choiceRows.length > 1) {
+          const cHeaderIdx = choiceRows.findIndex(r => r.some(c => /姓名|座號|班級|志願/i.test(String(c))));
+          const chRow = choiceRows[cHeaderIdx >= 0 ? cHeaderIdx : 0].map(c => String(c).trim());
+
+          let cColClass = -1, cColSeat = -1, cColName = -1;
+          const choiceColIndices = [];
+
+          chRow.forEach((head, idx) => {
+            if (/班級|年班|Class/i.test(head)) cColClass = idx;
+            else if (/座號|學號|編號|No/i.test(head) && cColSeat === -1) cColSeat = idx;
+            else if (/姓名|Name/i.test(head)) cColName = idx;
+            else if (/志願|選擇|選項|社團\d+/i.test(head) || /^[1-9]$|^1[0-5]$/.test(head) || /第.*志願/.test(head)) {
+              choiceColIndices.push({ idx, header: head });
+            }
+          });
+
+          // Sort choice columns in numeric order (1, 2, 3...)
+          choiceColIndices.sort((a, b) => {
+            const nA = (a.header.match(/\d+/) || [99])[0];
+            const nB = (b.header.match(/\d+/) || [99])[0];
+            return parseInt(nA) - parseInt(nB);
+          });
+
+          for (let r = (cHeaderIdx >= 0 ? cHeaderIdx + 1 : 1); r < choiceRows.length; r++) {
+            const row = choiceRows[r];
+            if (!row || row.every(c => c === '')) continue;
+
+            const cClass = cColClass >= 0 ? normalizeText(row[cColClass]) : '';
+            const cSeat = cColSeat >= 0 ? normalizeText(row[cColSeat]) : '';
+            const cName = cColName >= 0 ? normalizeText(row[cColName]) : '';
+
+            const studentChoices = [];
+            choiceColIndices.forEach(item => {
+              const val = String(row[item.idx] || '').trim();
+              if (val && val !== '0' && val !== '無' && val !== '未填' && val !== '未選') {
+                studentChoices.push(val);
+                discoveredClubs.add(val);
+              }
+            });
+
+            // Map keys
+            if (cClass && cSeat) choicesMap.set(`${cClass}_${cSeat}`, studentChoices);
+            if (cClass && cName) choicesMap.set(`${cClass}_${cName}`, studentChoices);
+            if (cName) choicesMap.set(`NAME_${cName}`, studentChoices);
+          }
+        }
+      }
+
+      // 2. Parse Roster (Master List)
+      const rosterRows = XLSX.utils.sheet_to_json(rosterSheet, { header: 1, defval: '' });
+      if (rosterRows.length < 2) {
+        showToast('全校學生名單工作表無足夠資料！', 'error');
+        return;
+      }
+
+      const rHeaderIdx = rosterRows.findIndex(r => r.some(c => /姓名|班級|座號|身分/i.test(String(c))));
+      const rHeaders = rosterRows[rHeaderIdx >= 0 ? rHeaderIdx : 0].map(h => String(h).trim());
+
+      let rColClass = -1, rColSeat = -1, rColName = -1, rColSpecial = -1;
+
+      rHeaders.forEach((h, idx) => {
+        if (/班級|年班|Class/i.test(h)) rColClass = idx;
+        else if (/座號|學號|編號|No/i.test(h) && rColSeat === -1) rColSeat = idx;
+        else if (/姓名|Name/i.test(h)) rColName = idx;
+        else if (/特殊身分|身分|身份|備註|組別/i.test(h)) rColSpecial = idx;
+      });
+
+      const mergedStudents = [];
+
+      for (let r = (rHeaderIdx >= 0 ? rHeaderIdx + 1 : 1); r < rosterRows.length; r++) {
+        const row = rosterRows[r];
+        if (!row || row.every(c => c === '')) continue;
+
+        const name = rColName >= 0 ? String(row[rColName]).trim() : `學生_${r}`;
+        if (!name) continue;
+
+        const className = rColClass >= 0 ? String(row[rColClass]).trim() : '';
+        const seat = rColSeat >= 0 ? String(row[rColSeat]).trim() : '';
+        const specialRaw = rColSpecial >= 0 ? String(row[rColSpecial]).trim() : '';
+
+        // Match choices
+        const nClass = normalizeText(className);
+        const nSeat = normalizeText(seat);
+        const nName = normalizeText(name);
+
+        const studentChoices = choicesMap.get(`${nClass}_${nSeat}`) ||
+                             choicesMap.get(`${nClass}_${nName}`) ||
+                             choicesMap.get(`NAME_${nName}`) ||
+                             [];
+
+        // Rule 5: Any student with special identity is strictly excluded from assignment
+        const isNegation = /^(無|否|一般|普通|正常|0|-|none|null)$/i.test(specialRaw);
+        const hasSpecialIdentity = specialRaw !== '' && !isNegation;
+
+        mergedStudents.push({
+          uid: 'stu_' + r + '_' + Math.random().toString(36).substring(2, 6),
+          className,
+          studentId: seat,
+          name,
+          specialRaw,
+          isExempt: hasSpecialIdentity,
+          exemptReason: hasSpecialIdentity ? specialRaw : '',
+          choices: studentChoices,
+          firstChoice: studentChoices[0] || '',
+          assignedClub: null,
+          assignedRank: null,
+          assignedRound: null,
+          drawResult: null
+        });
+      }
+
+      state.rawStudents = mergedStudents;
+
+      // 3. Parse Clubs & Quotas
+      initClubsConfig(discoveredClubs, wb, state.selectedQuotaSheet);
+
+      // Update UI preview
+      document.getElementById('file-name-text').textContent = state.currentFileName;
+      document.getElementById('file-meta-text').textContent = `已成功連結 3 大資料分頁：全校學生 ${mergedStudents.length} 人，社團共 ${Object.keys(state.clubsConfig).length} 個`;
+      document.getElementById('file-loaded-info').classList.remove('hidden');
+      document.getElementById('data-preview-card').classList.remove('hidden');
+      document.getElementById('btn-goto-step-2').removeAttribute('disabled');
+
+      renderStudentPreview();
+      showToast(`已成功讀取並比對全校名單 (${mergedStudents.length} 人)！`, 'success');
+    }
+
+    function initClubsConfig(discoveredClubsSet, workbook = null, quotaSheetName = '') {
+      state.clubsConfig = {};
+
+      if (workbook && quotaSheetName && workbook.Sheets[quotaSheetName]) {
+        const qSheet = workbook.Sheets[quotaSheetName];
+        const qRows = XLSX.utils.sheet_to_json(qSheet, { header: 1, defval: '' });
+        if (qRows.length > 1) {
+          let colClub = -1, colLimit = -1;
+          qRows[0].forEach((head, i) => {
+            const str = String(head || '').trim();
+            if (/社團|名稱|Club/i.test(str) && colClub === -1) colClub = i;
+            if (/名額|人數|上限|招收|Quota|可收/i.test(str)) colLimit = i;
+          });
+
+          if (colClub === -1) colClub = 0;
+          if (colLimit === -1) colLimit = 1;
+
+          for (let i = 1; i < qRows.length; i++) {
+            const row = qRows[i];
+            const cName = String(row[colClub] || '').trim();
+            const limit = parseInt(row[colLimit]);
+            if (cName && !/社團|名稱/i.test(cName)) {
+              state.clubsConfig[cName] = {
+                quota: !isNaN(limit) && limit > 0 ? limit : 25,
+                enrolled: []
+              };
+            }
+          }
+        }
+      }
+
+      // Add clubs found from preferences if not yet present
+      discoveredClubsSet.forEach(clubName => {
+        if (!state.clubsConfig[clubName]) {
+          state.clubsConfig[clubName] = {
+            quota: 25,
+            enrolled: []
+          };
+        }
+      });
+    }
+
+    function renderStudentPreview() {
+      const tbody = document.getElementById('student-preview-tbody');
+      tbody.innerHTML = '';
+
+      const searchVal = (document.getElementById('preview-search-input')?.value || '').trim().toLowerCase();
+
+      let exemptCount = 0;
+      let hasChoicesCount = 0;
+      let noChoicesCount = 0;
+
+      // Filter students if search query is provided
+      const filteredStudents = state.rawStudents.filter((stu) => {
+        if (stu.isExempt) exemptCount++;
+        else if (stu.choices.length > 0) hasChoicesCount++;
+        else noChoicesCount++;
+
+        if (!searchVal) return true;
+        return (
+          (stu.name && stu.name.toLowerCase().includes(searchVal)) ||
+          (stu.className && stu.className.toLowerCase().includes(searchVal)) ||
+          (stu.studentId && stu.studentId.toLowerCase().includes(searchVal)) ||
+          (stu.specialRaw && stu.specialRaw.toLowerCase().includes(searchVal))
+        );
+      });
+
+      // Display ALL students without truncation
+      filteredStudents.forEach((stu, index) => {
+        const tr = document.createElement('tr');
+        tr.className = stu.isExempt ? 'bg-amber-50/70 hover:bg-amber-100/50' : 'hover:bg-slate-50/70';
+
+        let statusBadge = '';
+        if (stu.isExempt) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">特殊身分免排</span>`;
+        } else if (stu.choices.length === 0) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200 whitespace-nowrap">未選社(最後隨機)</span>`;
+        } else {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 whitespace-nowrap">正常抽籤分發</span>`;
+        }
+
+        const specialCell = stu.specialRaw 
+          ? `<span class="font-bold ${stu.isExempt ? 'text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200' : 'text-slate-500'}">${stu.specialRaw}</span>`
+          : `<span class="text-slate-300">-</span>`;
+
+        const choiceStatus = stu.choices.length > 0 
+          ? `<span class="text-emerald-700 font-medium">已填 ${stu.choices.length} 個志願</span>`
+          : `<span class="text-rose-600 font-bold">無選社志願</span>`;
+
+        // Render complete choices formatted as numbered tags
+        let choicesHtml = '';
+        if (stu.choices.length > 0) {
+          choicesHtml = `<div class="flex flex-wrap gap-1 max-w-xl">` +
+            stu.choices.map((c, i) => `
+              <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded ${i === 0 ? 'bg-indigo-100 text-indigo-800 font-semibold border border-indigo-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}">
+                <span class="text-[9px] opacity-60 mr-1">#${i + 1}</span>${c}
+              </span>
+            `).join('') + `</div>`;
+        } else {
+          choicesHtml = `<span class="text-slate-400 italic">（未選社，將於最後一輪隨機安置）</span>`;
+        }
+
+        tr.innerHTML = `
+          <td class="p-2.5 font-mono text-slate-400 text-[11px]">${index + 1}</td>
+          <td class="p-2.5 whitespace-nowrap">${statusBadge}</td>
+          <td class="p-2.5 font-medium">${stu.className || '-'}</td>
+          <td class="p-2.5 text-slate-500 font-mono">${stu.studentId || '-'}</td>
+          <td class="p-2.5 font-bold text-slate-800">${stu.name}</td>
+          <td class="p-2.5">${specialCell}</td>
+          <td class="p-2.5">${choiceStatus}</td>
+          <td class="p-2.5">${choicesHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (filteredStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">無符合條件的學生資料</td></tr>`;
+      }
+
+      document.getElementById('student-count-badge').textContent = state.rawStudents.length;
+      document.getElementById('badge-has-choices').textContent = hasChoicesCount;
+      document.getElementById('badge-no-choices').textContent = noChoicesCount;
+      document.getElementById('badge-exempt-students').textContent = exemptCount;
+      lucide.createIcons();
+    }
+
+    // Bind Step 1 search input
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('preview-search-input')?.addEventListener('input', () => {
+        renderStudentPreview();
+      });
+    });
+
+    function switchStep(targetStep) {
+      state.currentStep = targetStep;
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById(`step-section-${i}`);
+        const tab = document.getElementById(`step-tab-${i}`);
+        if (i === targetStep) {
+          sec.classList.remove('hidden');
+          tab.classList.add('bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
+          tab.classList.remove('bg-slate-50', 'text-slate-400', 'border-slate-200');
+          const badge = tab.querySelector('span');
+          badge.className = 'w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[11px]';
+        } else {
+          sec.classList.add('hidden');
+          tab.classList.remove('bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
+          tab.classList.add('bg-slate-50', 'text-slate-400', 'border-slate-200');
+          const badge = tab.querySelector('span');
+          badge.className = 'w-5 h-5 rounded-full bg-slate-300 text-white flex items-center justify-center text-[11px]';
+        }
+      }
+      lucide.createIcons();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.getElementById('btn-goto-step-2').addEventListener('click', () => {
+      renderStep2Quotas();
+      switchStep(2);
+    });
+
+    document.getElementById('btn-back-to-step-1').addEventListener('click', () => {
+      switchStep(1);
+    });
+
+    document.getElementById('btn-goto-step-3').addEventListener('click', () => {
+      prepareStep3Simulation();
+      switchStep(3);
+    });
+
+    function renderStep2Quotas() {
+      const container = document.getElementById('club-config-grid');
+      container.innerHTML = '';
+
+      const clubNames = Object.keys(state.clubsConfig).sort();
+      let totalQuota = 0;
+
+      clubNames.forEach(clubName => {
+        const cfg = state.clubsConfig[clubName];
+        totalQuota += cfg.quota;
+
+        const card = document.createElement('div');
+        card.className = 'p-3 bg-white rounded-lg border border-slate-200 shadow-sm flex items-center justify-between';
+        card.innerHTML = `
+          <div class="truncate mr-2">
+            <h4 class="text-xs font-bold text-slate-800 truncate" title="${clubName}">${clubName}</h4>
+            <span class="text-[10px] text-slate-400">目前上限</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <input type="number" min="1" max="500" value="${cfg.quota}" data-club="${clubName}" class="quota-input w-16 text-center text-xs p-1 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 font-bold text-indigo-700 bg-slate-50">
+            <span class="text-xs text-slate-500">人</span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      // Update quota input changes
+      container.querySelectorAll('.quota-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const club = e.target.getAttribute('data-club');
+          const val = parseInt(e.target.value);
+          if (!isNaN(val) && val > 0) {
+            state.clubsConfig[club].quota = val;
+            updateStep2Stats();
+          }
+        });
+      });
+
+      updateStep2Stats();
+    }
+
+    function updateStep2Stats() {
+      const clubNames = Object.keys(state.clubsConfig);
+      const totalQuota = clubNames.reduce((acc, c) => acc + (state.clubsConfig[c].quota || 0), 0);
+      const exemptCount = state.rawStudents.filter(s => s.isExempt).length;
+      const toDistribute = state.rawStudents.length - exemptCount;
+
+      document.getElementById('stat-total-clubs').textContent = clubNames.length;
+      document.getElementById('stat-total-quota').textContent = totalQuota;
+      document.getElementById('stat-students-to-distribute').textContent = toDistribute;
+      document.getElementById('stat-exempt-count').textContent = exemptCount;
+    }
+
+    function prepareStep3Simulation() {
+      const exemptCount = state.rawStudents.filter(s => s.isExempt).length;
+      const targetCount = state.rawStudents.length - exemptCount;
+
+      document.getElementById('sim-target-count').textContent = targetCount;
+      document.getElementById('sim-assigned-count').textContent = '0';
+      document.getElementById('sim-progress-bar').style.width = '0%';
+      document.getElementById('sim-current-round-text').textContent = '待啟動';
+      document.getElementById('sim-current-desc').textContent = '點選上方「開始執行分發」或直接點選「檢視最終成果」';
+      
+      const btnView = document.getElementById('btn-view-results');
+      btnView.classList.remove('ring-4', 'ring-emerald-300', 'animate-pulse');
+      
+      let totalQuota = Object.values(state.clubsConfig).reduce((sum, c) => sum + c.quota, 0);
+      document.getElementById('sim-remaining-quota').textContent = totalQuota;
+      
+      document.getElementById('sim-logs-container').innerHTML = '<div class="text-slate-400 italic">系統準備就緒...</div>';
+      document.getElementById('sim-lottery-container').innerHTML = `
+        <div class="text-center text-slate-400 text-xs py-12">
+          當某社團申請人數大於可收名額時，<br>抽籤明細與未中籤落選資訊將顯示於此。
+        </div>
+      `;
+    }
+
+    // Helper: Fisher-Yates fair shuffle algorithm
+    function shuffleArray(arr) {
+      const array = [...arr];
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function appendLog(msg, type = 'info') {
+      const container = document.getElementById('sim-logs-container');
+      const timeStr = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      
+      let colorClass = 'text-slate-300';
+      if (type === 'success') colorClass = 'text-emerald-400 font-semibold';
+      else if (type === 'warn') colorClass = 'text-amber-400';
+      else if (type === 'draw') colorClass = 'text-fuchsia-300';
+      else if (type === 'round') colorClass = 'text-sky-300 font-bold border-t border-slate-700 pt-1 mt-1';
+
+      div.className = `${colorClass} leading-snug`;
+      div.innerHTML = `<span class="text-slate-500">[${timeStr}]</span> ${msg}`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+
+      state.distributionLog.push({ time: timeStr, msg, type });
+      document.getElementById('log-count-badge').textContent = `${state.distributionLog.length} 條紀錄`;
+    }
+
+    // Step 3: Broadcast Card for continuous live updates
+    function appendBroadcastCard(type, title, subtitle, detailsHtml) {
+      const container = document.getElementById('sim-lottery-container');
+      if (container.querySelector('.text-center')) {
+        container.innerHTML = '';
+      }
+
+      // Limit DOM items to keep the page high-performing
+      if (container.children.length > 50) {
+        container.removeChild(container.lastElementChild);
+      }
+
+      const card = document.createElement('div');
+      const timeStr = new Date().toLocaleTimeString();
+
+      const styles = {
+        round: 'bg-indigo-50/90 border-indigo-200 text-indigo-950',
+        draw: 'bg-amber-50/95 border-amber-300 text-amber-950 shadow-sm',
+        admit: 'bg-emerald-50/90 border-emerald-200 text-emerald-950',
+        random: 'bg-purple-50/90 border-purple-200 text-purple-950'
+      };
+
+      const svgIcons = {
+        round: `<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>`,
+        draw: `<svg class="w-4 h-4 text-amber-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h4l4 5-4 5H4M4 20h4l8-10h4M16 4h4v4M16 20h4v-4"/></svg>`,
+        admit: `<svg class="w-4 h-4 text-emerald-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+        random: `<svg class="w-4 h-4 text-purple-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+      };
+
+      card.className = `p-3 rounded-lg border text-xs space-y-1.5 transition-all ${styles[type] || styles.round}`;
+      card.innerHTML = `
+        <div class="flex items-center justify-between font-bold">
+          <span class="flex items-center gap-1.5">
+            ${svgIcons[type] || svgIcons.round}
+            <span>${title}</span>
+          </span>
+          <span class="text-[10px] opacity-75 font-mono">${timeStr}</span>
+        </div>
+        ${subtitle ? `<div class="text-[11px] font-medium opacity-90">${subtitle}</div>` : ''}
+        ${detailsHtml ? `<div class="mt-1">${detailsHtml}</div>` : ''}
+      `;
+
+      container.prepend(card);
+    }
+
+    let isSimulationRunning = false;
+
+    async function executeDistributionSimulation(fastMode = false) {
+      if (isSimulationRunning) return;
+      isSimulationRunning = true;
+
+      const btn = document.getElementById('btn-start-simulation');
+      btn.setAttribute('disabled', 'true');
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+      try {
+        // Reset club enrollments
+        Object.keys(state.clubsConfig).forEach(cName => {
+          state.clubsConfig[cName].enrolled = [];
+        });
+
+        state.distributionLog = [];
+        state.lotteryEvents = [];
+        document.getElementById('sim-lottery-container').innerHTML = '';
+
+        // Filter eligible students (Strictly exclude special identity students)
+        const exemptStudents = state.rawStudents.filter(s => s.isExempt);
+        let pendingStudents = state.rawStudents.filter(s => !s.isExempt).map(s => ({
+          ...s,
+          assignedClub: null,
+          assignedRank: null,
+          assignedRound: null
+        }));
+
+        const totalTarget = pendingStudents.length;
+        let totalAssigned = 0;
+
+        appendLog(`啟動志願分發程序。待分發學生總數：${totalTarget} 人，特殊身分免排：${exemptStudents.length} 人`, 'success');
+        appendBroadcastCard(
+          'round',
+          '分發程序正式啟動',
+          `全校應分發學生共 ${totalTarget} 人，特殊身分免排社團 ${exemptStudents.length} 人`,
+          `<div class="text-[11px] text-slate-600 bg-white/70 p-1.5 rounded border border-slate-200">依志願順序逐輪審查，超額即時抽籤。</div>`
+        );
+
+        // Determine max choice preferences
+        let maxChoicesCount = 0;
+        pendingStudents.forEach(s => {
+          if (s.choices.length > maxChoicesCount) maxChoicesCount = s.choices.length;
+        });
+        if (maxChoicesCount === 0) maxChoicesCount = 1;
+
+        const delayItem = fastMode ? 0 : 25;
+        const delayRound = fastMode ? 0 : 80;
+
+        // --- Rounds 1 to N ---
+        for (let round = 1; round <= maxChoicesCount; round++) {
+          if (pendingStudents.length === 0) break;
+
+          // Find clubs that still have vacancies
+          const availableClubs = Object.keys(state.clubsConfig).filter(c => {
+            const cfg = state.clubsConfig[c];
+            return cfg.enrolled.length < cfg.quota;
+          });
+
+          if (availableClubs.length === 0) {
+            appendLog(`所有社團名額已滿，提前結束志願輪次。`, 'warn');
+            appendBroadcastCard('round', `志願輪次結束`, '所有社團名額已額滿，志願分配提前結束。', '');
+            break;
+          }
+
+          document.getElementById('sim-current-round-text').textContent = `第 ${round} 輪志願分發`;
+          document.getElementById('sim-current-desc').textContent = `依全體落選學生之「第 ${round} 志願」進行媒合`;
+          appendLog(`===== 開始第 ${round} 輪分發 (依第 ${round} 志願) =====`, 'round');
+          appendLog(`本輪開放社團數：${availableClubs.length} 個，待分發人數：${pendingStudents.length} 人`);
+
+          appendBroadcastCard(
+            'round',
+            `第 ${round} 輪分發啟動`,
+            `審查全體落選學生之「第 ${round} 志願」`,
+            `<div class="text-[11px] text-indigo-800 bg-indigo-100/70 p-1.5 rounded">本輪開放社團：${availableClubs.length} 個 ｜ 待分發學生：${pendingStudents.length} 人</div>`
+          );
+
+          // Group students by current round's choice
+          const roundApplications = new Map();
+          const stillPending = [];
+
+          pendingStudents.forEach(stu => {
+            const choiceIndex = round - 1;
+            const desiredClub = stu.choices[choiceIndex];
+
+            if (desiredClub && availableClubs.includes(desiredClub)) {
+              if (!roundApplications.has(desiredClub)) {
+                roundApplications.set(desiredClub, []);
+              }
+              roundApplications.get(desiredClub).push(stu);
+            } else {
+              stillPending.push(stu);
+            }
+          });
+
+          // Process applications for each club
+          for (const [clubName, applicants] of roundApplications.entries()) {
+            const clubCfg = state.clubsConfig[clubName];
+            const remainingSpots = clubCfg.quota - clubCfg.enrolled.length;
+
+            if (applicants.length <= remainingSpots) {
+              applicants.forEach(stu => {
+                stu.assignedClub = clubName;
+                stu.assignedRank = `第 ${round} 志願`;
+                stu.assignedRound = round;
+                clubCfg.enrolled.push(stu);
+                totalAssigned++;
+              });
+              appendLog(`【${clubName}】申請 ${applicants.length} 人，剩餘 ${remainingSpots}，全員錄取！`, 'info');
+
+              const admittedNames = applicants.map(s => `${s.name}(${s.className || ''})`).join('、');
+              appendBroadcastCard(
+                'admit',
+                `第 ${round} 輪全額錄取：【${clubName}】`,
+                `申請 ${applicants.length} 人 ≦ 剩餘名額 ${remainingSpots} 人，全額正取免抽籤！`,
+                `<div class="text-[11px] text-emerald-800 bg-emerald-100/70 p-1.5 rounded break-all"><strong class="font-semibold">錄取名冊 (${applicants.length}人)：</strong>${admittedNames}</div>`
+              );
+            } else {
+              appendLog(`【${clubName}】超額！申請 ${applicants.length} 人，名額僅 ${remainingSpots} 人，啟動隨機抽籤！`, 'warn');
+              
+              const shuffled = shuffleArray(applicants);
+              const admitted = shuffled.slice(0, remainingSpots);
+              const rejected = shuffled.slice(remainingSpots);
+
+              admitted.forEach(stu => {
+                stu.assignedClub = clubName;
+                stu.assignedRank = `第 ${round} 志願 (中籤)`;
+                stu.assignedRound = round;
+                clubCfg.enrolled.push(stu);
+                totalAssigned++;
+              });
+
+              rejected.forEach(stu => {
+                stillPending.push(stu);
+              });
+
+              const admittedNames = admitted.map(s => `${s.name}(${s.className || ''})`).join('、');
+              const rejectedNames = rejected.map(s => `${s.name}(${s.className || ''})`).join('、');
+
+              appendBroadcastCard(
+                'draw',
+                `第 ${round} 輪抽籤事件：【${clubName}】`,
+                `申請 ${applicants.length} 人 ＞ 剩餘名額 ${remainingSpots} 人（中籤率 ${Math.round((remainingSpots / applicants.length) * 100)}%）`,
+                `
+                  <div class="text-[11px] text-emerald-900 bg-emerald-100/70 p-1.5 rounded mb-1 break-all">
+                    <strong class="font-semibold">中籤正取 (${admitted.length}人)：</strong>${admittedNames}
+                  </div>
+                  <div class="text-[11px] text-rose-900 bg-rose-100/70 p-1.5 rounded break-all">
+                    <strong class="font-semibold">未中籤進入下輪 (${rejected.length}人)：</strong>${rejectedNames}
+                  </div>
+                `
+              );
+
+              appendLog(`【${clubName}】抽籤完成：正取 ${admitted.length} 人，落選 ${rejected.length} 人進入下一輪`, 'draw');
+            }
+
+            if (delayItem > 0) await new Promise(res => setTimeout(res, delayItem));
+          }
+
+          pendingStudents = stillPending;
+
+          document.getElementById('sim-assigned-count').textContent = totalAssigned;
+          const pct = totalTarget > 0 ? Math.round((totalAssigned / totalTarget) * 100) : 100;
+          document.getElementById('sim-progress-bar').style.width = `${pct}%`;
+          
+          let remQuota = Object.values(state.clubsConfig).reduce((sum, c) => sum + (c.quota - c.enrolled.length), 0);
+          document.getElementById('sim-remaining-quota').textContent = remQuota;
+
+          if (delayRound > 0) await new Promise(res => setTimeout(res, delayRound));
+        }
+
+        // Rule 4: Special case - random placement for students with no choices or failed all rounds
+        if (pendingStudents.length > 0) {
+          document.getElementById('sim-current-round-text').textContent = `最終隨機安置輪`;
+          document.getElementById('sim-current-desc').textContent = `針對未選社及所有志願落選學生進行隨機補位`;
+          appendLog(`===== 開始最終隨機補位輪 (未選社及志願落選學生) =====`, 'round');
+
+          const slotPool = [];
+          Object.keys(state.clubsConfig).forEach(cName => {
+            const cfg = state.clubsConfig[cName];
+            const free = cfg.quota - cfg.enrolled.length;
+            for (let i = 0; i < free; i++) {
+              slotPool.push(cName);
+            }
+          });
+
+          const shuffledSlots = shuffleArray(slotPool);
+          const shuffledPending = shuffleArray(pendingStudents);
+
+          const assignedDetails = [];
+
+          shuffledPending.forEach((stu, idx) => {
+            if (idx < shuffledSlots.length) {
+              const assignedClubName = shuffledSlots[idx];
+              stu.assignedClub = assignedClubName;
+              stu.assignedRank = stu.choices.length === 0 ? '未選社隨機分發' : '志願額滿隨機分發';
+              stu.assignedRound = '最終補位輪';
+              state.clubsConfig[assignedClubName].enrolled.push(stu);
+              totalAssigned++;
+              assignedDetails.push(`${stu.name} → 【${assignedClubName}】`);
+            } else {
+              stu.assignedClub = '名額不足未分發';
+              stu.assignedRank = '無名額';
+              stu.assignedRound = '最終補位輪';
+              assignedDetails.push(`${stu.name} (社團全額滿無法安置)`);
+            }
+          });
+
+          appendBroadcastCard(
+            'random',
+            '最終隨機補位輪完成',
+            `共安排 ${Math.min(shuffledPending.length, shuffledSlots.length)} 位學生隨機分配至有缺額之社團`,
+            `<div class="text-[11px] text-purple-950 bg-purple-100/70 p-1.5 rounded max-h-24 overflow-y-auto custom-scrollbar break-all">${assignedDetails.join('、')}</div>`
+          );
+
+          appendLog(`最終隨機安置完畢！共安置 ${Math.min(shuffledPending.length, shuffledSlots.length)} 人`, 'success');
+        }
+
+        // Update final stats
+        document.getElementById('sim-assigned-count').textContent = totalAssigned;
+        document.getElementById('sim-progress-bar').style.width = '100%';
+        let remQuota = Object.values(state.clubsConfig).reduce((sum, c) => sum + (c.quota - c.enrolled.length), 0);
+        document.getElementById('sim-remaining-quota').textContent = remQuota;
+        document.getElementById('sim-current-round-text').textContent = '分發完成！';
+        document.getElementById('sim-current-desc').textContent = '分發已完畢，請檢閱下方紀錄後點擊右上角「下一步：檢視最終成果」';
+
+        // Assemble final results
+        const allFinalStudents = [
+          ...Object.values(state.clubsConfig).flatMap(c => c.enrolled),
+          ...pendingStudents.filter(s => s.assignedClub === '名額不足未分發'),
+          ...exemptStudents.map(s => ({
+            ...s,
+            assignedClub: '特殊身分免排',
+            assignedRank: '免排社團',
+            assignedRound: '-'
+          }))
+        ];
+
+        state.finalResults = allFinalStudents;
+
+        // Visual celebration
+        if (typeof confetti === 'function') {
+          confetti({ particleCount: 90, spread: 70, origin: { y: 0.65 } });
+        }
+
+        const btnView = document.getElementById('btn-view-results');
+        btnView.classList.add('ring-4', 'ring-emerald-400', 'animate-pulse');
+        showToast('分發與抽籤已全部完成！請點選右上角「下一步：檢視最終成果」。', 'success');
+
+        // 取消自動跳轉，停留在第三頁等待使用者手動按按鈕
+      } catch (err) {
+        console.error(err);
+        showToast('分發過程發生異常，請重試。', 'error');
+      } finally {
+        isSimulationRunning = false;
+        btn.removeAttribute('disabled');
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+
+    document.getElementById('btn-start-simulation').addEventListener('click', () => {
+      executeDistributionSimulation(false);
+    });
+
+    // Directly view results: if results not generated yet, auto-run in high-speed mode!
+    document.getElementById('btn-view-results').addEventListener('click', async () => {
+      if (isSimulationRunning) {
+        showToast('分發正在進行中，請稍候幾秒完成...', 'info');
+        return;
+      }
+      if (!state.finalResults) {
+        showToast('正在為您極速完成分發與抽籤...', 'info');
+        await executeDistributionSimulation(true);
+      }
+      renderStep4Results();
+      switchStep(4);
+    });
+
+    function renderStep4Results() {
+      if (!state.finalResults) return;
+
+      const data = state.finalResults;
+      let r1 = 0, r2 = 0, r3 = 0, rRand = 0, rExempt = 0;
+
+      data.forEach(s => {
+        if (s.isExempt) {
+          rExempt++;
+        } else if (/第 1 志願/.test(s.assignedRank)) {
+          r1++;
+        } else if (/第 2 志願/.test(s.assignedRank)) {
+          r2++;
+        } else if (/第 [3-9] 志願|第 \d+ 志願/.test(s.assignedRank)) {
+          r3++;
+        } else if (/隨機/.test(s.assignedRank)) {
+          rRand++;
+        }
+      });
+
+      const totalDist = data.length - rExempt;
+      document.getElementById('res-stat-rank1').textContent = r1;
+      document.getElementById('res-stat-rank1-pct').textContent = totalDist > 0 ? `${Math.round((r1 / totalDist) * 100)}%` : '0%';
+      document.getElementById('res-stat-rank2').textContent = r2;
+      document.getElementById('res-stat-rank2-pct').textContent = totalDist > 0 ? `${Math.round((r2 / totalDist) * 100)}%` : '0%';
+      document.getElementById('res-stat-rank3').textContent = r3;
+      document.getElementById('res-stat-rank3-pct').textContent = totalDist > 0 ? `${Math.round((r3 / totalDist) * 100)}%` : '0%';
+      document.getElementById('res-stat-random').textContent = rRand;
+      document.getElementById('res-stat-exempt').textContent = rExempt;
+
+      renderClubButtons();
+      renderResultsTable(currentResultTab);
+    }
+
+    // Render interactive club buttons in Step 4
+    function renderClubButtons() {
+      const container = document.getElementById('club-button-pills');
+      container.innerHTML = '';
+
+      const clubNames = Object.keys(state.clubsConfig).sort();
+
+      // "All Clubs" button
+      const allBtn = document.createElement('button');
+      allBtn.className = `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm ${state.selectedClubFilter === 'ALL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`;
+      allBtn.innerHTML = `<span>全部社團</span> <span class="text-[10px] opacity-80">(${state.finalResults.filter(s => !s.isExempt).length}人)</span>`;
+      allBtn.onclick = () => {
+        state.selectedClubFilter = 'ALL';
+        renderClubButtons();
+        document.getElementById('selected-club-summary-badge').textContent = '目前顯示：全部社團';
+        renderResultsTable('byclub');
+      };
+      container.appendChild(allBtn);
+
+      clubNames.forEach(cName => {
+        const cfg = state.clubsConfig[cName];
+        const enrolledCount = cfg.enrolled.length;
+        const isFull = enrolledCount >= cfg.quota;
+
+        const btn = document.createElement('button');
+        const isActive = state.selectedClubFilter === cName;
+
+        let badgeColor = isFull ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800';
+        if (isActive) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow transition-all flex items-center gap-1.5 ring-2 ring-indigo-300';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 transition-all flex items-center gap-1.5 shadow-sm';
+        }
+
+        btn.innerHTML = `
+          <span>${cName}</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded font-mono ${isActive ? 'bg-white/20 text-white' : badgeColor}">
+            ${enrolledCount}/${cfg.quota}
+          </span>
+        `;
+
+        btn.onclick = () => {
+          state.selectedClubFilter = cName;
+          renderClubButtons();
+          document.getElementById('selected-club-summary-badge').textContent = `目前顯示：【${cName}】錄取名冊 (${enrolledCount}/${cfg.quota} 人)`;
+          renderResultsTable('byclub');
+        };
+
+        container.appendChild(btn);
+      });
+    }
+
+    // Results Sub-Tabs and search
+    let currentResultTab = 'all';
+    document.getElementById('tab-res-all').addEventListener('click', () => switchResultTab('all'));
+    document.getElementById('tab-res-byclub').addEventListener('click', () => switchResultTab('byclub'));
+    document.getElementById('tab-res-exempt').addEventListener('click', () => switchResultTab('exempt'));
+
+    function switchResultTab(tabKey) {
+      currentResultTab = tabKey;
+      const tabs = [
+        { id: 'tab-res-all', key: 'all' },
+        { id: 'tab-res-byclub', key: 'byclub' },
+        { id: 'tab-res-exempt', key: 'exempt' }
+      ];
+
+      tabs.forEach(t => {
+        const btn = document.getElementById(t.id);
+        if (t.key === tabKey) {
+          btn.className = 'res-tab active py-2 px-3 text-xs font-bold border-b-2 border-indigo-600 text-indigo-700 flex items-center gap-1.5';
+        } else {
+          btn.className = 'res-tab py-2 px-3 text-xs font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1.5';
+        }
+      });
+
+      // Show or hide club buttons panel
+      const buttonsPanel = document.getElementById('club-buttons-panel');
+      if (tabKey === 'byclub') {
+        buttonsPanel.classList.remove('hidden');
+        renderClubButtons();
+      } else {
+        buttonsPanel.classList.add('hidden');
+      }
+
+      renderResultsTable(tabKey);
+    }
+
+    document.getElementById('res-search-input').addEventListener('input', () => {
+      renderResultsTable(currentResultTab);
+    });
+
+    function renderResultsTable(tabKey) {
+      const tbody = document.getElementById('res-table-body');
+      tbody.innerHTML = '';
+      if (!state.finalResults) return;
+
+      const searchTerm = document.getElementById('res-search-input').value.trim().toLowerCase();
+      let list = [...state.finalResults];
+
+      if (tabKey === 'exempt') {
+        list = list.filter(s => s.isExempt);
+      } else if (tabKey === 'byclub') {
+        list = list.filter(s => !s.isExempt);
+        if (state.selectedClubFilter && state.selectedClubFilter !== 'ALL') {
+          list = list.filter(s => s.assignedClub === state.selectedClubFilter);
+        } else {
+          list.sort((a, b) => (a.assignedClub || '').localeCompare(b.assignedClub || ''));
+        }
+      } else {
+        // all
+        list.sort((a, b) => {
+          if (a.className !== b.className) return (a.className || '').localeCompare(b.className || '');
+          return (a.studentId || '').localeCompare(b.studentId || '', undefined, { numeric: true });
+        });
+      }
+
+      if (searchTerm) {
+        list = list.filter(s => 
+          (s.name && s.name.toLowerCase().includes(searchTerm)) ||
+          (s.className && s.className.toLowerCase().includes(searchTerm)) ||
+          (s.studentId && s.studentId.toLowerCase().includes(searchTerm)) ||
+          (s.assignedClub && s.assignedClub.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      list.forEach((stu, index) => {
+        const tr = document.createElement('tr');
+        tr.className = stu.isExempt ? 'bg-amber-50/50' : 'hover:bg-slate-50';
+
+        let badgeClub = '';
+        if (stu.isExempt) {
+          badgeClub = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">免排社團 (${stu.specialRaw})</span>`;
+        } else if (/隨機/.test(stu.assignedRank)) {
+          badgeClub = `<span class="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">${stu.assignedClub}</span>`;
+        } else {
+          badgeClub = `<span class="font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">${stu.assignedClub}</span>`;
+        }
+
+        tr.innerHTML = `
+          <td class="p-2.5 font-mono text-slate-400 text-[11px]">${index + 1}</td>
+          <td class="p-2.5 font-medium">${stu.className || '-'}</td>
+          <td class="p-2.5 text-slate-500 font-mono">${stu.studentId || '-'}</td>
+          <td class="p-2.5 font-bold text-slate-800">${stu.name}</td>
+          <td class="p-2.5">${stu.specialRaw ? `<span class="font-semibold text-amber-800">${stu.specialRaw}</span>` : '<span class="text-slate-300">-</span>'}</td>
+          <td class="p-2.5">${badgeClub}</td>
+          <td class="p-2.5 text-slate-600 font-medium">${stu.assignedRank || '-'}</td>
+          <td class="p-2.5 text-slate-400 font-mono">${stu.assignedRound || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">無符合條件之資料</td></tr>`;
+      }
+    }
+
+    // Helper: 班級與座號數值精確排序比較器
+    function compareStudentsByClassAndSeat(a, b) {
+      const classA = String(a.className || '').trim();
+      const classB = String(b.className || '').trim();
+      const cmpClass = classA.localeCompare(classB, 'zh-Hant', { numeric: true });
+      if (cmpClass !== 0) return cmpClass;
+
+      // 座號以純數字大小排序 (例如 1, 2, 10 依序排列)
+      const seatNumA = parseInt(String(a.studentId || '').replace(/\D/g, ''), 10);
+      const seatNumB = parseInt(String(b.studentId || '').replace(/\D/g, ''), 10);
+      if (!isNaN(seatNumA) && !isNaN(seatNumB) && seatNumA !== seatNumB) {
+        return seatNumA - seatNumB;
+      }
+      return String(a.studentId || '').localeCompare(String(b.studentId || ''), 'zh-Hant', { numeric: true });
+    }
+
+    document.getElementById('btn-export-excel').addEventListener('click', () => {
+      if (!state.finalResults) {
+        showToast('尚無分發結果可匯出！', 'warning');
+        return;
+      }
+
+      try {
+        const wb = XLSX.utils.book_new();
+
+        // -------------------------------------------------------------
+        // 分頁 1：按 社團 → 班級 → 座號 順序排列
+        // -------------------------------------------------------------
+        const listByClub = [...state.finalResults].sort((a, b) => {
+          // 一般社團在前，特殊身分免排學生置於末端
+          const clubA = String(a.assignedClub || '').trim();
+          const clubB = String(b.assignedClub || '').trim();
+          const isExemptA = a.isExempt || clubA === '特殊身分免排' ? 1 : 0;
+          const isExemptB = b.isExempt || clubB === '特殊身分免排' ? 1 : 0;
+          if (isExemptA !== isExemptB) return isExemptA - isExemptB;
+
+          const cmpClub = clubA.localeCompare(clubB, 'zh-Hant');
+          if (cmpClub !== 0) return cmpClub;
+
+          return compareStudentsByClassAndSeat(a, b);
+        });
+
+        const s1Rows = [
+          ['社團名稱', '班級', '座號', '姓名', '特殊身分', '錄取志願序 / 分發方式', '分發輪次']
+        ];
+        listByClub.forEach(s => {
+          s1Rows.push([
+            s.assignedClub || '',
+            s.className || '',
+            s.studentId || '',
+            s.name || '',
+            s.specialRaw || '',
+            s.assignedRank || '',
+            s.assignedRound || ''
+          ]);
+        });
+
+        const ws1 = XLSX.utils.aoa_to_sheet(s1Rows);
+        ws1['!cols'] = [
+          { wch: 18 }, // 社團名稱
+          { wch: 10 }, // 班級
+          { wch: 10 }, // 座號
+          { wch: 14 }, // 姓名
+          { wch: 16 }, // 特殊身分
+          { wch: 22 }, // 錄取志願序 / 分發方式
+          { wch: 14 }  // 分發輪次
+        ];
+        XLSX.utils.book_append_sheet(wb, ws1, '社團→班級→座號');
+
+        // -------------------------------------------------------------
+        // 分頁 2：按 班級 → 座號 順序排列
+        // -------------------------------------------------------------
+        const listByClass = [...state.finalResults].sort(compareStudentsByClassAndSeat);
+
+        const s2Rows = [
+          ['班級', '座號', '姓名', '特殊身分', '分發社團', '錄取志願序 / 分發方式', '分發輪次']
+        ];
+        listByClass.forEach(s => {
+          s2Rows.push([
+            s.className || '',
+            s.studentId || '',
+            s.name || '',
+            s.specialRaw || '',
+            s.assignedClub || '',
+            s.assignedRank || '',
+            s.assignedRound || ''
+          ]);
+        });
+
+        const ws2 = XLSX.utils.aoa_to_sheet(s2Rows);
+        ws2['!cols'] = [
+          { wch: 10 }, // 班級
+          { wch: 10 }, // 座號
+          { wch: 14 }, // 姓名
+          { wch: 16 }, // 特殊身分
+          { wch: 18 }, // 分發社團
+          { wch: 22 }, // 錄取志願序 / 分發方式
+          { wch: 14 }  // 分發輪次
+        ];
+        XLSX.utils.book_append_sheet(wb, ws2, '班級→座號');
+
+        // 匯出下載 Excel 檔案
+        const outFileName = `社團志願分發結果_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, outFileName);
+        showToast(`已成功下載兩分頁 Excel 報表：${outFileName}`, 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('匯出 Excel 失敗，請重試。', 'error');
+      }
+    });
+
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      switchStep(1);
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

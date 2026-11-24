@@ -235,6 +235,7 @@
                     <i class="fa-solid fa-compass"></i>
                   </span>
                   <h3 class="font-black text-lg sm:text-xl text-slate-900">待選社團一覽</h3>
+                  <span id="gradeBadge" class="hidden bg-amber-300 text-slate-900 border border-slate-900 text-xs font-black px-2.5 py-0.5 rounded-full"></span>
                   <span id="clubCountBadge" class="bg-slate-900 text-white text-xs font-black px-2.5 py-0.5 rounded-full">0</span>
                   <button onclick="openAllClubsModal()" class="pop-btn text-xs bg-white hover:bg-amber-100 text-slate-900 font-black px-3 py-1 rounded-xl flex items-center space-x-1">
                     <i class="fa-solid fa-table-list text-sky-600"></i>
@@ -535,6 +536,14 @@
             document.getElementById('specialStatusView').classList.add('hidden');
             document.getElementById('normalSelectionView').classList.remove('hidden');
             
+            const gradeBadge = document.getElementById('gradeBadge');
+            if (res.gradePrefix) {
+              gradeBadge.textContent = `${res.gradePrefix} 級專屬`;
+              gradeBadge.classList.remove('hidden');
+            } else {
+              gradeBadge.classList.add('hidden');
+            }
+
             const validNames = new Set(allClubs.map(c => c.name));
             selectedClubNames = [...new Set((res.savedPreferences || []).filter(name => validNames.has(name)))];
             savedClubNames = [...selectedClubNames];

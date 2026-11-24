@@ -377,7 +377,6 @@
               <th class="py-3 px-4 font-black whitespace-nowrap">備用教室</th>
               <th class="py-3 px-4 font-black whitespace-nowrap text-center">人數</th>
               <th class="py-3 px-4 font-black min-w-[200px]">備註</th>
-              <th class="py-3 px-4 font-black whitespace-nowrap text-center">選填狀態</th>
             </tr>
           </thead>
           <tbody id="allClubsTableBody" class="divide-y-2 divide-slate-200 bg-white">
@@ -901,7 +900,7 @@
       if (filtered.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="8" class="py-12 text-center text-slate-500 font-bold">
+            <td colspan="7" class="py-12 text-center text-slate-500 font-bold">
               <i class="fa-regular fa-folder-open text-3xl mb-2 block text-amber-500"></i>
               找不到符合條件的社團資料
             </td>
@@ -911,23 +910,7 @@
       }
 
       tbody.innerHTML = filtered.map((club, idx) => {
-        const prefIndex = selectedClubNames.indexOf(club.name);
-        const isSelected = prefIndex !== -1;
         const rowBg = idx % 2 === 1 ? 'bg-amber-50/40' : 'bg-white';
-
-        let statusHtml = '';
-        if (isSelected) {
-          statusHtml = `<span class="inline-block bg-emerald-300 text-slate-900 text-xs font-black px-2.5 py-1 rounded-lg border border-slate-900">已加入（第 ${prefIndex + 1} 志願）</span>`;
-        } else if (!isSystemOpen) {
-          statusHtml = `<span class="text-xs font-bold text-slate-400">未選填</span>`;
-        } else {
-          statusHtml = `
-            <button data-club-name="${escapeHtml(club.name)}" onclick="addClubFromTable(this.dataset.clubName)"
-              class="pop-btn bg-teal-300 hover:bg-teal-400 text-slate-900 text-xs font-black px-3 py-1 rounded-lg">
-              + 加入志願
-            </button>
-          `;
-        }
 
         return `
           <tr class="${rowBg} hover:bg-sky-100/60 transition">
@@ -938,16 +921,9 @@
             <td class="py-3 px-4 font-bold text-slate-500 whitespace-nowrap">${escapeHtml(club.backupRoom || '-')}</td>
             <td class="py-3 px-4 text-center font-black text-sky-700 whitespace-nowrap">${escapeHtml(club.capacity || '-')}</td>
             <td class="py-3 px-4 font-medium text-slate-700 text-xs leading-relaxed">${escapeHtml(club.note || '-')}</td>
-            <td class="py-3 px-4 text-center whitespace-nowrap">${statusHtml}</td>
           </tr>
         `;
       }).join('');
-    }
-
-    function addClubFromTable(clubName) {
-      addClub(clubName);
-      renderAllClubsTable();
-      showToast(`已將「${clubName}」加入第 ${selectedClubNames.length} 志願！`, 'success');
     }
 
     function addClub(clubName) {

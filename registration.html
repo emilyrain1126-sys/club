@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>社團嘉年華｜學生線上選社系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- 引入 SortableJS 支援電腦滑鼠與手機觸控拖曳排序 -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
+    
+    body {
+      font-family: 'Zen Maru Gothic', 'Noto Sans TC', sans-serif;
+      background-color: #FFFDF7;
+      background-image: radial-gradient(#FDE68A 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+    }
+
+    /* 活潑卡片與按鈕微立體陰影 */
+    .pop-card {
+      border: 2px solid #1E293B;
+      box-shadow: 4px 4px 0px #1E293B;
+    }
+    .pop-card-sm {
+      border: 2px solid #1E293B;
+      box-shadow: 3px 3px 0px #1E293B;
+    }
+    .pop-btn {
+      border: 2px solid #1E293B;
+      box-shadow: 3px 3px 0px #1E293B;
+      transition: all 0.15s ease;
+    }
+    .pop-btn:hover:not(:disabled) {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px #1E293B;
+    }
+    .pop-btn:active:not(:disabled) {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px #1E293B;
+    }
+    .pop-btn:disabled {
+      box-shadow: none;
+      border-color: #CBD5E1;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #FEF3C7; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #F59E0B; border-radius: 4px; border: 1px solid #1E293B; }
+    ::-webkit-scrollbar-thumb:hover { background: #D97706; }
+
+    .sortable-ghost {
+      opacity: 0.45;
+      background-color: #FEF08A !important;
+      border: 2px dashed #1E293B !important;
+      box-shadow: none !important;
+    }
+    .sortable-chosen {
+      box-shadow: 6px 6px 0px #1E293B !important;
+      transform: rotate(1deg) scale(1.02);
+      z-index: 20;
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- 頂部導覽列：活力雙色漸層與手繪邊框 -->
+  <header class="bg-amber-400 border-b-2 border-slate-900 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-rose-500 text-white p-2 rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_#0f172a] transform -rotate-3">
+          <i class="fa-solid fa-rocket text-lg"></i>
+        </div>
+        <div>
+          <span class="font-black text-lg sm:text-xl tracking-wide text-slate-900">社團嘉年華</span>
+          <span class="hidden sm:inline-block ml-1.5 text-xs font-bold bg-white text-slate-900 px-2 py-0.5 rounded-full border border-slate-900">線上選社系統</span>
+        </div>
+      </div>
+      
+      <!-- 登入後顯示學生資訊與操作按鈕 -->
+      <div id="userHeaderInfo" class="hidden flex items-center space-x-2 sm:space-x-3">
+        <div class="text-sm text-right hidden md:block mr-1 bg-white/90 px-3 py-1 rounded-xl border-2 border-slate-900">
+          <div class="font-black text-slate-900 leading-tight" id="headerUserName"></div>
+          <div class="text-xs font-bold text-teal-700 leading-tight" id="headerUserDetail"></div>
+        </div>
+        
+        <button id="headerAllClubsBtn" onclick="openAllClubsModal()" class="pop-btn bg-sky-300 hover:bg-sky-400 text-slate-900 px-3 py-1.5 rounded-xl text-sm font-bold flex items-center space-x-1.5">
+          <i class="fa-solid fa-table-list"></i>
+          <span class="hidden sm:inline">所有社團總表</span>
+        </button>
+
+        <button id="headerSummaryBtn" onclick="openSummaryModal()" class="pop-btn bg-emerald-400 hover:bg-emerald-500 text-slate-900 px-3 py-1.5 rounded-xl text-sm font-bold flex items-center space-x-1.5">
+          <i class="fa-solid fa-star"></i>
+          <span>我的選社清單</span>
+        </button>
+
+        <button onclick="logout()" class="pop-btn bg-white hover:bg-rose-100 text-slate-900 px-3 py-1.5 rounded-xl text-sm font-bold flex items-center space-x-1.5">
+          <i class="fa-solid fa-right-from-bracket text-rose-600"></i>
+          <span class="hidden sm:inline">登出</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全域訊息通知 Toast -->
+  <div id="toastContainer" class="fixed top-20 right-4 z-50 flex flex-col space-y-2.5 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- 主要內容區塊 -->
+  <main class="flex-grow flex items-center justify-center p-4 sm:p-6">
+    
+    <!-- ================= 1. 登入畫面 ================= -->
+    <div id="loginSection" class="w-full max-w-md bg-white rounded-3xl pop-card overflow-hidden">
+      <div class="bg-gradient-to-br from-teal-400 via-emerald-400 to-amber-300 p-6 text-slate-900 text-center border-b-2 border-slate-900 relative overflow-hidden">
+        <!-- 裝飾幾何泡泡 -->
+        <div class="w-16 h-16 bg-white/30 rounded-full absolute -top-4 -left-4"></div>
+        <div class="w-12 h-12 bg-rose-400/30 rounded-full absolute bottom-2 right-4"></div>
+        
+        <div class="w-16 h-16 bg-white rounded-2xl border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] flex items-center justify-center mx-auto mb-3 transform rotate-3">
+          <i class="fa-solid fa-palette text-3xl text-rose-500"></i>
+        </div>
+        <h1 class="text-2xl font-black tracking-wide">探索你的社團舞台！</h1>
+        <p class="text-slate-800 font-bold text-sm mt-1">輸入學號與密碼（身分證末四碼）立即登入</p>
+      </div>
+      
+      <form id="loginForm" onsubmit="handleLogin(event)" class="p-6 sm:p-7 space-y-5 bg-white">
+        <div>
+          <label class="block text-sm font-black text-slate-800 mb-1.5">
+            <i class="fa-solid fa-id-badge text-teal-600 mr-1"></i>學號
+          </label>
+          <input type="text" id="studentIdInput" required placeholder="請輸入學號（例如: 1150001）"
+            class="w-full px-4 py-3 border-2 border-slate-900 rounded-2xl bg-amber-50/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-amber-300 font-bold text-slate-800 transition">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-black text-slate-800 mb-1.5">
+            <i class="fa-solid fa-key text-amber-500 mr-1"></i>密碼（身分證末四碼）
+          </label>
+          <input type="password" id="idLast4Input" required maxlength="4" placeholder="請輸入身分證後 4 碼"
+            class="w-full px-4 py-3 border-2 border-slate-900 rounded-2xl bg-amber-50/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-amber-300 font-bold text-slate-800 transition">
+        </div>
+
+        <button type="submit" id="loginBtn"
+          class="pop-btn w-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-black text-base py-3.5 px-4 rounded-2xl flex items-center justify-center space-x-2 mt-2">
+          <span>出發選社去！</span>
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+
+        <!-- 外部連線狀態提示框 -->
+        <div id="previewHint" class="hidden text-xs text-slate-700 bg-sky-100 border-2 border-slate-900 rounded-2xl p-3 space-y-1 text-center font-medium">
+          <div class="font-black text-sky-900"><i class="fa-solid fa-link mr-1"></i>已連線至專屬選社資料庫</div>
+          <div class="text-slate-600">請輸入試算表內的「學號」與「身分證末四碼」登入</div>
+        </div>
+      </form>
+    </div>
+
+    <!-- ================= 2. 選社主畫面 ================= -->
+    <div id="dashboardSection" class="hidden w-full max-w-7xl self-start">
+      
+      <!-- 特殊身分無法選社專屬提示畫面 -->
+      <div id="specialStatusView" class="hidden max-w-2xl mx-auto mt-6 bg-white rounded-3xl pop-card overflow-hidden">
+        <div class="bg-rose-400 p-6 text-slate-900 text-center border-b-2 border-slate-900">
+          <div class="w-16 h-16 bg-white rounded-2xl border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] flex items-center justify-center mx-auto mb-3 transform -rotate-3">
+            <i class="fa-solid fa-star-half-stroke text-3xl text-rose-500"></i>
+          </div>
+          <h2 class="text-2xl font-black">您目前無需參加線上選社</h2>
+          <p class="text-slate-900 font-bold text-sm mt-1">系統偵測到您具備特殊班級或專長身分</p>
+        </div>
+        <div class="p-6 sm:p-8 text-center space-y-5">
+          <div class="bg-amber-50 border-2 border-slate-900 rounded-2xl p-4 inline-block text-left w-full max-w-md shadow-[3px_3px_0px_#0f172a]">
+            <div class="text-xs font-bold text-slate-500 mb-1">登入學生資訊</div>
+            <div class="font-black text-slate-900 text-lg" id="specialStudentInfo"></div>
+            <div class="mt-2.5 pt-2.5 border-t-2 border-dashed border-slate-300 flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-600">特殊身分註記：</span>
+              <span class="bg-rose-200 text-rose-900 border border-slate-900 font-black text-xs px-3 py-1 rounded-full" id="specialStudentTag"></span>
+            </div>
+          </div>
+          <p class="text-slate-700 font-medium text-sm leading-relaxed max-w-md mx-auto">
+            依學校社團活動規定，具備上述特殊身分的同學已有專屬課程或社團安排，<strong>無需（且無法）透過本系統進行線上選社</strong>。若有疑問請洽詢學務處社團活動組。
+          </p>
+          <div class="pt-2">
+            <button onclick="logout()" class="pop-btn bg-amber-400 hover:bg-amber-300 text-slate-900 font-black px-6 py-2.5 rounded-2xl text-sm inline-flex items-center space-x-2">
+              <i class="fa-solid fa-right-from-bracket"></i>
+              <span>登出帳號</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 一般生選社操作區塊 -->
+      <div id="normalSelectionView">
+        <!-- 系統關閉選社時的警告橫幅 -->
+        <div id="closedBanner" class="hidden bg-rose-400 text-slate-900 rounded-2xl p-4 mb-5 pop-card-sm flex items-center space-x-3">
+          <div class="w-11 h-11 rounded-xl bg-white border-2 border-slate-900 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-lock text-lg text-rose-600"></i>
+          </div>
+          <div>
+            <h2 class="font-black text-base">選社時間已截止（目前為唯讀檢視模式）</h2>
+            <p class="text-sm font-bold text-slate-800">管理員已關閉選社開放設定，您目前僅能檢視已儲存的志願結果，無法新增、拖曳調整或重新送出。</p>
+          </div>
+        </div>
+
+        <!-- 狀態與公告提示列 -->
+        <div class="bg-white rounded-2xl p-4 mb-6 pop-card-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="flex items-start sm:items-center space-x-3.5">
+            <div class="w-11 h-11 rounded-2xl bg-amber-300 border-2 border-slate-900 text-slate-900 flex items-center justify-center font-black shrink-0 transform -rotate-3">
+              <i class="fa-solid fa-bullhorn text-lg"></i>
+            </div>
+            <div>
+              <h2 class="font-black text-slate-900 text-base sm:text-lg" id="systemAnnouncement">選社截止前皆可登入修改志願序</h2>
+              <p class="text-xs sm:text-sm font-medium text-slate-600 mt-0.5">每個社團只能填寫一次。右側志願清單支援<strong class="text-rose-600">直接按住拖曳</strong>調整順序！</p>
+            </div>
+          </div>
+          
+          <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+            <div id="lastUpdatedBadge" class="hidden text-xs bg-emerald-200 text-slate-900 border-2 border-slate-900 px-3 py-1.5 rounded-xl font-bold flex items-center space-x-1.5">
+              <i class="fa-solid fa-circle-check text-emerald-700"></i>
+              <span>已儲存：<strong id="lastUpdatedTime"></strong></span>
+            </div>
+            <button onclick="openSummaryModal()" class="pop-btn text-xs bg-sky-200 hover:bg-sky-300 text-slate-900 font-black px-3.5 py-2 rounded-xl flex items-center space-x-1.5">
+              <i class="fa-solid fa-clipboard-list"></i>
+              <span>檢視完整志願清單</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 雙欄式版面：左側社團名單 / 右側志願排序 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          <!-- 左欄：所有社團名單 (佔 7 欄) -->
+          <div class="lg:col-span-7 bg-white rounded-3xl pop-card overflow-hidden">
+            <div class="p-4 sm:p-5 border-b-2 border-slate-900 bg-teal-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="bg-white border-2 border-slate-900 w-8 h-8 rounded-xl flex items-center justify-center text-teal-700">
+                  <i class="fa-solid fa-compass"></i>
+                </span>
+                <h3 class="font-black text-lg sm:text-xl text-slate-900">社團一覽表</h3>
+                <span id="clubCountBadge" class="bg-slate-900 text-white text-xs font-black px-2.5 py-0.5 rounded-full">0</span>
+                <button onclick="openAllClubsModal()" class="pop-btn text-xs bg-white hover:bg-amber-100 text-slate-900 font-black px-3 py-1 rounded-xl flex items-center space-x-1">
+                  <i class="fa-solid fa-table-list text-sky-600"></i>
+                  <span>條列式總表</span>
+                </button>
+              </div>
+              <!-- 搜尋過濾框 -->
+              <div class="relative w-full sm:w-56">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-600 text-sm">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" id="searchInput" oninput="renderClubList()" placeholder="搜尋社團、老師或地點..."
+                  class="w-full pl-9 pr-3 py-1.5 text-sm font-bold border-2 border-slate-900 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+              </div>
+            </div>
+            
+            <div id="clubListContainer" class="p-4 sm:p-5 space-y-4 max-h-[68vh] overflow-y-auto bg-amber-50/30">
+              <!-- 由 JS 動態渲染社團卡片 -->
+            </div>
+          </div>
+
+          <!-- 右欄：我的志願序清單 (佔 5 欄) -->
+          <div class="lg:col-span-5 bg-white rounded-3xl pop-card overflow-hidden sticky top-20">
+            <div class="p-4 sm:p-5 border-b-2 border-slate-900 bg-rose-300 flex items-center justify-between">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="bg-white border-2 border-slate-900 w-8 h-8 rounded-xl flex items-center justify-center text-rose-600">
+                    <i class="fa-solid fa-heart"></i>
+                  </span>
+                  <h3 class="font-black text-lg sm:text-xl text-slate-900">我的志願排序</h3>
+                </div>
+                <p class="text-xs font-bold text-slate-800 mt-1" id="dragHintText">可按住項目上下拖曳，或使用箭頭調整</p>
+              </div>
+              <span class="text-xs font-black text-slate-900 bg-white border-2 border-slate-900 px-3 py-1 rounded-full shrink-0 shadow-[2px_2px_0px_#0f172a]">
+                已選 <strong id="selectedCount" class="text-rose-600 text-sm">0</strong> 個
+              </span>
+            </div>
+
+            <!-- 支援拖曳排序的容器 -->
+            <div id="preferenceListContainer" class="p-4 sm:p-5 space-y-3 min-h-[260px] max-h-[52vh] overflow-y-auto bg-rose-50/30">
+              <!-- 由 JS 動態渲染已選志願 -->
+            </div>
+
+            <div class="p-4 sm:p-5 border-t-2 border-slate-900 bg-amber-100">
+              <button id="submitBtn" onclick="handleSubmit()"
+                class="pop-btn w-full bg-amber-400 hover:bg-amber-300 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-900 font-black text-base py-3.5 px-4 rounded-2xl flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>送出並儲存志願序</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================= 3. 我的選社清單彈出視窗 (Modal) ================= -->
+  <div id="summaryModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl pop-card max-w-lg w-full overflow-hidden transform transition-all">
+      <div class="bg-emerald-400 text-slate-900 px-6 py-4 border-b-2 border-slate-900 flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <i class="fa-solid fa-star text-xl"></i>
+          <h3 class="font-black text-lg">我的選社志願順序清單</h3>
+        </div>
+        <button onclick="closeSummaryModal()" class="bg-white border-2 border-slate-900 w-8 h-8 rounded-xl flex items-center justify-center hover:bg-rose-100 transition">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+      
+      <div class="p-6">
+        <div class="bg-amber-50 border-2 border-slate-900 rounded-2xl p-3.5 mb-4 flex items-center justify-between text-sm">
+          <div>
+            <span class="font-bold text-slate-600">學生：</span>
+            <strong class="font-black text-slate-900" id="modalStudentInfo"></strong>
+          </div>
+          <div id="modalSaveStatusBadge"></div>
+        </div>
+
+        <div id="modalListContent" class="max-h-[50vh] overflow-y-auto space-y-2.5 pr-1">
+          <!-- 由 JS 動態產生 -->
+        </div>
+      </div>
+
+      <div class="bg-slate-100 px-6 py-3.5 border-t-2 border-slate-900 flex justify-end">
+        <button onclick="closeSummaryModal()" class="pop-btn bg-amber-400 hover:bg-amber-300 text-slate-900 font-black px-5 py-2 rounded-xl text-sm">
+          關閉視窗
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 4. 所有社團條列式總表彈出視窗 (Modal) ================= -->
+  <div id="allClubsModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-white rounded-3xl pop-card max-w-5xl w-full overflow-hidden flex flex-col max-h-[88vh]">
+      <div class="bg-sky-300 text-slate-900 px-6 py-4 border-b-2 border-slate-900 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <i class="fa-solid fa-table-list text-xl"></i>
+          <h3 class="font-black text-lg">所有社團資訊條列總表</h3>
+          <span id="modalTotalClubsCount" class="bg-slate-900 text-white text-xs font-black px-2.5 py-0.5 rounded-full">0 個社團</span>
+        </div>
+        <button onclick="closeAllClubsModal()" class="bg-white border-2 border-slate-900 w-8 h-8 rounded-xl flex items-center justify-center hover:bg-rose-100 transition">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+      
+      <!-- 總表內快速搜尋列 -->
+      <div class="bg-amber-50 px-6 py-3 border-b-2 border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+        <span class="text-xs font-bold text-slate-600">橫向可左右滑動檢視完整欄位（社團名稱、指導老師、活動地點、備用教室、人數、備註）</span>
+        <div class="relative w-full sm:w-64">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-600 text-xs">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </span>
+          <input type="text" id="modalClubSearchInput" oninput="renderAllClubsTable()" placeholder="篩選社團名稱、老師、地點或備註..."
+            class="w-full pl-8 pr-3 py-1.5 text-xs font-bold border-2 border-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white">
+        </div>
+      </div>
+
+      <!-- 條列式表格容器 -->
+      <div class="overflow-auto flex-grow">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead class="bg-amber-200 text-slate-900 sticky top-0 z-10 border-b-2 border-slate-900">
+            <tr>
+              <th class="py-3 px-4 font-black whitespace-nowrap">社團名稱</th>
+              <th class="py-3 px-4 font-black whitespace-nowrap">指導老師</th>
+              <th class="py-3 px-4 font-black whitespace-nowrap">活動地點</th>
+              <th class="py-3 px-4 font-black whitespace-nowrap">備用教室</th>
+              <th class="py-3 px-4 font-black whitespace-nowrap text-center">人數</th>
+              <th class="py-3 px-4 font-black min-w-[200px]">備註</th>
+              <th class="py-3 px-4 font-black whitespace-nowrap text-center">選填狀態</th>
+            </tr>
+          </thead>
+          <tbody id="allClubsTableBody" class="divide-y-2 divide-slate-200 bg-white">
+            <!-- 由 JS 動態產生條列資料 -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-slate-100 px-6 py-3.5 border-t-2 border-slate-900 flex justify-end shrink-0">
+        <button onclick="closeAllClubsModal()" class="pop-btn bg-amber-400 hover:bg-amber-300 text-slate-900 font-black px-5 py-2 rounded-xl text-sm">
+          關閉總表
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 全域狀態管理
+    let currentUser = null;
+    let userCredentials = null;
+    let isSystemOpen = true;
+    let allClubs = [];
+    let selectedClubNames = []; // 目前畫面上的志願序 (以「社團名稱」識別)
+    let savedClubNames = [];    // 已成功儲存進試算表的志願序
+    let sortableInstance = null;
+
+    // 您的 Google Apps Script 網頁應用程式正式網址
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwSwIXk1-2Lb62ya_GKx3lr2GC9apTc1H2JqyHs1rQqjtMyqt9AlpV4b-bfQIAWT4vz/exec';
+    const isGasEnvironment = typeof google !== 'undefined' && google.script && google.script.run;
+
+    // 統一後端呼叫介面
+    function callBackend(fnName, args, onSuccess, onFailure) {
+      if (isGasEnvironment) {
+        google.script.run
+          .withSuccessHandler(onSuccess)
+          .withFailureHandler(onFailure)[fnName](...args);
+      } else {
+        const bodyPayload = fnName === 'loginAndGetData'
+          ? { action: 'loginAndGetData', studentId: args[0], idLast4: args[1] }
+          : { action: 'submitPreferences', credentials: args[0], selectedClubNames: args[1] };
+
+        fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(bodyPayload)
+        })
+        .then(res => res.json())
+        .then(data => onSuccess(data))
+        .catch(err => onFailure(err));
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!isGasEnvironment) {
+        document.getElementById('previewHint').classList.remove('hidden');
+      }
+      initSortable();
+    });
+
+    function initSortable() {
+      const el = document.getElementById('preferenceListContainer');
+      sortableInstance = Sortable.create(el, {
+        animation: 180,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        draggable: '.pref-item',
+        disabled: !isSystemOpen,
+        onEnd: function (evt) {
+          if (evt.oldIndex === evt.newIndex) return;
+          const movedItem = selectedClubNames.splice(evt.oldIndex, 1)[0];
+          selectedClubNames.splice(evt.newIndex, 0, movedItem);
+          renderPreferenceList();
+          renderClubList();
+        }
+      });
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      const styles = {
+        success: 'bg-emerald-300 text-slate-900',
+        error: 'bg-rose-400 text-slate-900',
+        warning: 'bg-amber-300 text-slate-900',
+        info: 'bg-sky-300 text-slate-900'
+      };
+      const icons = {
+        success: 'fa-circle-check',
+        error: 'fa-circle-exclamation',
+        warning: 'fa-triangle-exclamation',
+        info: 'fa-circle-info'
+      };
+
+      toast.className = `${styles[type]} pop-card-sm pointer-events-auto px-4 py-3 rounded-2xl flex items-center space-x-3 transform transition-all duration-300 translate-x-full opacity-0`;
+      toast.innerHTML = `
+        <i class="fa-solid ${icons[type]} text-lg shrink-0"></i>
+        <span class="text-sm font-black leading-snug">${message}</span>
+      `;
+
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const studentId = document.getElementById('studentIdInput').value.trim();
+      const idLast4 = document.getElementById('idLast4Input').value.trim();
+      const btn = document.getElementById('loginBtn');
+
+      if (!studentId || !idLast4) {
+        showToast('請輸入學號與密碼（身分證末四碼）', 'warning');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>驗證中...</span>`;
+
+      callBackend('loginAndGetData', [studentId, idLast4],
+        function(res) {
+          btn.disabled = false;
+          btn.innerHTML = `<span>出發選社去！</span><i class="fa-solid fa-paper-plane"></i>`;
+
+          if (res.success) {
+            currentUser = res.user;
+            userCredentials = { studentId, idLast4 };
+            isSystemOpen = res.isOpen;
+            allClubs = res.clubs || [];
+
+            document.getElementById('headerUserName').textContent = `${currentUser.name} (${currentUser.studentId})`;
+            document.getElementById('headerUserDetail').textContent = `${currentUser.className} 班 ${currentUser.seatNo} 號` + (currentUser.specialStatus ? ` ｜ ${currentUser.specialStatus}` : '');
+            document.getElementById('userHeaderInfo').classList.remove('hidden');
+
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.remove('hidden');
+
+            if (currentUser.specialStatus) {
+              document.getElementById('headerSummaryBtn').classList.add('hidden');
+              document.getElementById('normalSelectionView').classList.add('hidden');
+              document.getElementById('specialStatusView').classList.remove('hidden');
+              
+              document.getElementById('specialStudentInfo').textContent = `${currentUser.className} 班 ${currentUser.seatNo} 號 ${currentUser.name} (${currentUser.studentId})`;
+              document.getElementById('specialStudentTag').textContent = currentUser.specialStatus;
+              showToast(`已登入，您的身分為「${currentUser.specialStatus}」，無需進行線上選社。`, 'warning');
+              return;
+            }
+
+            document.getElementById('headerSummaryBtn').classList.remove('hidden');
+            document.getElementById('specialStatusView').classList.add('hidden');
+            document.getElementById('normalSelectionView').classList.remove('hidden');
+            
+            const validNames = new Set(allClubs.map(c => c.name));
+            selectedClubNames = [...new Set((res.savedPreferences || []).filter(name => validNames.has(name)))];
+            savedClubNames = [...selectedClubNames];
+
+            document.getElementById('systemAnnouncement').textContent = res.announcement;
+
+            if (isSystemOpen) {
+              document.getElementById('closedBanner').classList.add('hidden');
+              document.getElementById('dragHintText').textContent = '可按住項目上下拖曳，或使用箭頭調整';
+              if (sortableInstance) sortableInstance.option('disabled', false);
+            } else {
+              document.getElementById('closedBanner').classList.remove('hidden');
+              document.getElementById('dragHintText').textContent = '選社已截止，目前已鎖定排序';
+              if (sortableInstance) sortableInstance.option('disabled', true);
+            }
+
+            if (res.lastUpdated) {
+              document.getElementById('lastUpdatedTime').textContent = res.lastUpdated;
+              document.getElementById('lastUpdatedBadge').classList.remove('hidden');
+            } else {
+              document.getElementById('lastUpdatedBadge').classList.add('hidden');
+            }
+            
+            renderAll();
+            showToast(`歡迎加入選社，${currentUser.className}班 ${currentUser.name}！`, 'success');
+          } else {
+            showToast(res.message, 'error');
+          }
+        },
+        function(err) {
+          btn.disabled = false;
+          btn.innerHTML = `<span>出發選社去！</span><i class="fa-solid fa-paper-plane"></i>`;
+          showToast('連線失敗：' + err.message, 'error');
+        }
+      );
+    }
+
+    function logout() {
+      currentUser = null;
+      userCredentials = null;
+      allClubs = [];
+      selectedClubNames = [];
+      savedClubNames = [];
+      
+      document.getElementById('idLast4Input').value = '';
+      document.getElementById('searchInput').value = '';
+      document.getElementById('userHeaderInfo').classList.add('hidden');
+      document.getElementById('dashboardSection').classList.add('hidden');
+      document.getElementById('loginSection').classList.remove('hidden');
+      showToast('已安全登出系統', 'info');
+    }
+
+    function renderAll() {
+      renderClubList();
+      renderPreferenceList();
+    }
+
+    /**
+     * 渲染左側：社團名單
+     */
+    function renderClubList() {
+      const container = document.getElementById('clubListContainer');
+      const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+      
+      const filteredClubs = allClubs.filter(club => 
+        club.name.toLowerCase().includes(keyword) || 
+        club.teacher.toLowerCase().includes(keyword) ||
+        club.location.toLowerCase().includes(keyword) ||
+        club.note.toLowerCase().includes(keyword)
+      );
+
+      document.getElementById('clubCountBadge').textContent = filteredClubs.length;
+
+      if (filteredClubs.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-slate-500 font-bold">
+            <i class="fa-regular fa-face-sad-tear text-4xl mb-2 text-amber-500"></i>
+            <p>找不到符合條件的社團喔！</p>
+          </div>
+        `;
+        return;
+      }
+
+      // 活潑卡片左色條循環
+      const accentColors = ['bg-amber-400', 'bg-teal-400', 'bg-sky-400', 'bg-rose-400', 'bg-violet-400'];
+
+      container.innerHTML = filteredClubs.map((club, idx) => {
+        const prefIndex = selectedClubNames.indexOf(club.name);
+        const isSelected = prefIndex !== -1;
+        const accent = accentColors[idx % accentColors.length];
+
+        let actionHtml = '';
+        if (isSelected) {
+          actionHtml = `
+            <span class="inline-flex items-center space-x-1.5 bg-emerald-300 text-slate-900 text-xs font-black px-3.5 py-2 rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_#0f172a]">
+              <i class="fa-solid fa-star text-amber-600"></i>
+              <span>第 ${prefIndex + 1} 志願</span>
+            </span>
+          `;
+        } else if (!isSystemOpen) {
+          actionHtml = `
+            <span class="inline-flex items-center space-x-1 bg-slate-200 text-slate-500 text-xs font-bold px-3 py-2 rounded-xl border-2 border-slate-400">
+              <i class="fa-solid fa-lock"></i>
+              <span>已截止</span>
+            </span>
+          `;
+        } else {
+          actionHtml = `
+            <button data-club-name="${escapeHtml(club.name)}" onclick="addClub(this.dataset.clubName)" 
+              class="pop-btn bg-teal-300 hover:bg-teal-400 text-slate-900 text-sm font-black px-4 py-2 rounded-xl flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>加入志願</span>
+            </button>
+          `;
+        }
+
+        return `
+          <div class="pop-card-sm ${isSelected ? 'bg-emerald-50' : 'bg-white'} rounded-2xl overflow-hidden transition">
+            <div class="h-2 ${accent} border-b-2 border-slate-900"></div>
+            <div class="p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div class="space-y-2.5 flex-grow">
+                <!-- 社團名稱 -->
+                <div class="flex items-center space-x-2">
+                  <h4 class="font-black text-base sm:text-lg text-slate-900">${escapeHtml(club.name)}</h4>
+                </div>
+                
+                <!-- 指導老師 / 活動地點 / 備用教室 / 人數 資訊標籤列 -->
+                <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-800">
+                  <span class="inline-flex items-center space-x-1.5 bg-amber-100 border border-slate-900 px-2.5 py-1 rounded-lg">
+                    <i class="fa-solid fa-chalkboard-user text-amber-700"></i>
+                    <span>指導：${escapeHtml(club.teacher || '未填寫')}</span>
+                  </span>
+                  <span class="inline-flex items-center space-x-1.5 bg-rose-100 border border-slate-900 px-2.5 py-1 rounded-lg">
+                    <i class="fa-solid fa-location-dot text-rose-600"></i>
+                    <span>地點：${escapeHtml(club.location || '未填寫')}</span>
+                  </span>
+                  ${club.backupRoom ? `
+                    <span class="inline-flex items-center space-x-1.5 bg-slate-100 border border-slate-900 px-2.5 py-1 rounded-lg">
+                      <i class="fa-solid fa-door-open text-slate-600"></i>
+                      <span>備用：${escapeHtml(club.backupRoom)}</span>
+                    </span>
+                  ` : ''}
+                  ${club.capacity ? `
+                    <span class="inline-flex items-center space-x-1.5 bg-sky-100 border border-slate-900 px-2.5 py-1 rounded-lg">
+                      <i class="fa-solid fa-users text-sky-700"></i>
+                      <span>名額：${escapeHtml(club.capacity)} 人</span>
+                    </span>
+                  ` : ''}
+                </div>
+
+                <!-- 備註 -->
+                ${club.note ? `
+                  <div class="inline-flex items-start space-x-1.5 text-xs font-bold text-slate-800 bg-yellow-100 border border-slate-900 px-3 py-1.5 rounded-xl">
+                    <i class="fa-solid fa-sparkles text-amber-600 mt-0.5 shrink-0"></i>
+                    <span>備註：${escapeHtml(club.note)}</span>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="shrink-0 self-end sm:self-center">
+                ${actionHtml}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * 渲染右側：我的志願序清單
+     */
+    function renderPreferenceList() {
+      const container = document.getElementById('preferenceListContainer');
+      const submitBtn = document.getElementById('submitBtn');
+      document.getElementById('selectedCount').textContent = selectedClubNames.length;
+      
+      if (!isSystemOpen) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-lock"></i><span>選社已截止（無法修改）</span>`;
+      } else {
+        submitBtn.disabled = selectedClubNames.length === 0;
+        submitBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i><span>送出並儲存志願序</span>`;
+      }
+
+      if (selectedClubNames.length === 0) {
+        container.innerHTML = `
+          <div class="h-56 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-400 bg-white/70 rounded-2xl p-6 text-center">
+            <i class="fa-solid fa-hand-point-left text-4xl mb-2 text-rose-400"></i>
+            <p class="font-black text-slate-700">志願清單還是空的喔！</p>
+            <p class="text-xs font-bold mt-1">${isSystemOpen ? '快從左邊挑選喜歡的社團點擊「加入志願」' : '目前無選社紀錄'}</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = selectedClubNames.map((clubName, index) => {
+        const club = allClubs.find(c => c.name === clubName);
+        if (!club) return '';
+
+        const isFirst = index === 0;
+        const isLast = index === selectedClubNames.length - 1;
+        const subInfo = [
+          club.teacher ? `指導：${club.teacher}` : '',
+          club.location ? `地點：${club.location}` : ''
+        ].filter(Boolean).join(' ｜ ');
+
+        const badgeColor = index === 0 ? 'bg-rose-400 text-slate-900' : (index === 1 ? 'bg-amber-300 text-slate-900' : (index === 2 ? 'bg-teal-300 text-slate-900' : 'bg-slate-200 text-slate-800'));
+
+        return `
+          <div class="pref-item pop-card-sm flex items-center justify-between bg-white p-3 rounded-2xl ${isSystemOpen ? 'cursor-grab active:cursor-grabbing hover:bg-amber-50' : 'opacity-90'} transition select-none">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              ${isSystemOpen ? `<i class="fa-solid fa-grip-vertical text-slate-400 hover:text-slate-900 px-1"></i>` : ''}
+              <div class="w-8 h-8 rounded-xl ${badgeColor} border-2 border-slate-900 font-black text-sm flex items-center justify-center shrink-0">
+                ${index + 1}
+              </div>
+              <div class="truncate">
+                <div class="font-black text-slate-900 text-sm truncate">${escapeHtml(club.name)}</div>
+                <div class="text-xs font-bold text-slate-500 truncate">${escapeHtml(subInfo)}</div>
+              </div>
+            </div>
+
+            ${isSystemOpen ? `
+              <div class="flex items-center space-x-1 shrink-0 ml-2">
+                <button onclick="moveUp(${index})" ${isFirst ? 'disabled' : ''} title="往上移一志願"
+                  class="w-7 h-7 rounded-lg border border-slate-900 bg-slate-100 flex items-center justify-center text-slate-800 hover:bg-amber-200 disabled:opacity-30 disabled:border-slate-300 transition">
+                  <i class="fa-solid fa-arrow-up text-xs"></i>
+                </button>
+                <button onclick="moveDown(${index})" ${isLast ? 'disabled' : ''} title="往下移一志願"
+                  class="w-7 h-7 rounded-lg border border-slate-900 bg-slate-100 flex items-center justify-center text-slate-800 hover:bg-amber-200 disabled:opacity-30 disabled:border-slate-300 transition">
+                  <i class="fa-solid fa-arrow-down text-xs"></i>
+                </button>
+                <button onclick="removeClub(${index})" title="移除此志願"
+                  class="w-7 h-7 rounded-lg border border-slate-900 bg-rose-100 flex items-center justify-center text-rose-600 hover:bg-rose-300 transition ml-1">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * 開啟「我的選社順序清單」彈出視窗
+     */
+    function openSummaryModal() {
+      if (!currentUser) return;
+      
+      document.getElementById('modalStudentInfo').textContent = `${currentUser.className} 班 ${currentUser.seatNo} 號 ${currentUser.name} (${currentUser.studentId})`;
+      
+      const isSynced = JSON.stringify(selectedClubNames) === JSON.stringify(savedClubNames);
+      const statusBadge = document.getElementById('modalSaveStatusBadge');
+      
+      if (selectedClubNames.length === 0) {
+        statusBadge.innerHTML = `<span class="text-xs bg-slate-200 border border-slate-900 text-slate-700 px-2.5 py-1 rounded-full font-black">尚未填報</span>`;
+      } else if (isSynced && savedClubNames.length > 0) {
+        statusBadge.innerHTML = `<span class="text-xs bg-emerald-300 border border-slate-900 text-slate-900 px-2.5 py-1 rounded-full font-black"><i class="fa-solid fa-check mr-1"></i>已同步儲存</span>`;
+      } else {
+        statusBadge.innerHTML = `<span class="text-xs bg-amber-300 border border-slate-900 text-slate-900 px-2.5 py-1 rounded-full font-black"><i class="fa-solid fa-triangle-exclamation mr-1"></i>尚有未儲存變更</span>`;
+      }
+
+      const listContainer = document.getElementById('modalListContent');
+      if (selectedClubNames.length === 0) {
+        listContainer.innerHTML = `
+          <div class="text-center py-10 text-slate-500 font-bold">
+            <i class="fa-regular fa-clipboard text-4xl mb-2 text-amber-500"></i>
+            <p class="text-sm">您目前尚未選擇任何社團志願。</p>
+          </div>
+        `;
+      } else {
+        listContainer.innerHTML = selectedClubNames.map((clubName, idx) => {
+          const club = allClubs.find(c => c.name === clubName);
+          const detailText = club ? `${club.teacher || ''} / ${club.location || ''}` : '';
+          return `
+            <div class="flex items-center justify-between p-3 rounded-2xl border-2 border-slate-900 ${idx === 0 ? 'bg-rose-100' : 'bg-white'}">
+              <div class="flex items-center space-x-3">
+                <span class="px-2.5 py-1 rounded-xl border border-slate-900 text-xs font-black ${idx === 0 ? 'bg-rose-400 text-slate-900' : 'bg-amber-200 text-slate-900'}">
+                  第 ${idx + 1} 志願
+                </span>
+                <span class="font-black text-slate-900">${escapeHtml(clubName)}</span>
+              </div>
+              <span class="text-xs font-bold text-slate-600">${escapeHtml(detailText)}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('summaryModal').classList.remove('hidden');
+    }
+
+    function closeSummaryModal() {
+      document.getElementById('summaryModal').classList.add('hidden');
+    }
+
+    /**
+     * 開啟「所有社團條列式總表」彈出視窗
+     */
+    function openAllClubsModal() {
+      document.getElementById('modalClubSearchInput').value = '';
+      renderAllClubsTable();
+      document.getElementById('allClubsModal').classList.remove('hidden');
+    }
+
+    function closeAllClubsModal() {
+      document.getElementById('allClubsModal').classList.add('hidden');
+    }
+
+    function renderAllClubsTable() {
+      const tbody = document.getElementById('allClubsTableBody');
+      const keyword = document.getElementById('modalClubSearchInput').value.trim().toLowerCase();
+
+      const filtered = allClubs.filter(club =>
+        club.name.toLowerCase().includes(keyword) ||
+        club.teacher.toLowerCase().includes(keyword) ||
+        club.location.toLowerCase().includes(keyword) ||
+        club.backupRoom.toLowerCase().includes(keyword) ||
+        club.note.toLowerCase().includes(keyword)
+      );
+
+      document.getElementById('modalTotalClubsCount').textContent = `${filtered.length} 個社團`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-12 text-center text-slate-500 font-bold">
+              <i class="fa-regular fa-folder-open text-3xl mb-2 block text-amber-500"></i>
+              找不到符合條件的社團資料
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((club, idx) => {
+        const prefIndex = selectedClubNames.indexOf(club.name);
+        const isSelected = prefIndex !== -1;
+        const rowBg = idx % 2 === 1 ? 'bg-amber-50/40' : 'bg-white';
+
+        let statusHtml = '';
+        if (isSelected) {
+          statusHtml = `<span class="inline-block bg-emerald-300 text-slate-900 text-xs font-black px-2.5 py-1 rounded-lg border border-slate-900">第 ${prefIndex + 1} 志願</span>`;
+        } else if (!isSystemOpen) {
+          statusHtml = `<span class="text-xs font-bold text-slate-400">未選填</span>`;
+        } else {
+          statusHtml = `
+            <button data-club-name="${escapeHtml(club.name)}" onclick="addClubFromTable(this.dataset.clubName)"
+              class="pop-btn bg-teal-300 hover:bg-teal-400 text-slate-900 text-xs font-black px-3 py-1 rounded-lg">
+              + 加入志願
+            </button>
+          `;
+        }
+
+        return `
+          <tr class="${rowBg} hover:bg-sky-100/60 transition">
+            <td class="py-3 px-4 font-black text-slate-900 whitespace-nowrap">${escapeHtml(club.name)}</td>
+            <td class="py-3 px-4 font-bold text-slate-700 whitespace-nowrap">${escapeHtml(club.teacher || '-')}</td>
+            <td class="py-3 px-4 font-bold text-slate-700 whitespace-nowrap">${escapeHtml(club.location || '-')}</td>
+            <td class="py-3 px-4 font-bold text-slate-500 whitespace-nowrap">${escapeHtml(club.backupRoom || '-')}</td>
+            <td class="py-3 px-4 text-center font-black text-sky-700 whitespace-nowrap">${escapeHtml(club.capacity || '-')}</td>
+            <td class="py-3 px-4 font-medium text-slate-700 text-xs leading-relaxed">${escapeHtml(club.note || '-')}</td>
+            <td class="py-3 px-4 text-center whitespace-nowrap">${statusHtml}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function addClubFromTable(clubName) {
+      addClub(clubName);
+      renderAllClubsTable();
+      showToast(`已將「${clubName}」加入第 ${selectedClubNames.length} 志願！`, 'success');
+    }
+
+    function addClub(clubName) {
+      if (!isSystemOpen) return;
+      if (selectedClubNames.includes(clubName)) {
+        showToast('此社團已在您的志願清單中，每個社團只能填寫一次！', 'warning');
+        return;
+      }
+      selectedClubNames.push(clubName);
+      renderAll();
+    }
+
+    function removeClub(index) {
+      if (!isSystemOpen) return;
+      selectedClubNames.splice(index, 1);
+      renderAll();
+    }
+
+    function moveUp(index) {
+      if (!isSystemOpen || index <= 0) return;
+      const temp = selectedClubNames[index - 1];
+      selectedClubNames[index - 1] = selectedClubNames[index];
+      selectedClubNames[index] = temp;
+      renderPreferenceList();
+      renderClubList();
+    }
+
+    function moveDown(index) {
+      if (!isSystemOpen || index >= selectedClubNames.length - 1) return;
+      const temp = selectedClubNames[index + 1];
+      selectedClubNames[index + 1] = selectedClubNames[index];
+      selectedClubNames[index] = temp;
+      renderPreferenceList();
+      renderClubList();
+    }
+
+    function handleSubmit() {
+      if (!isSystemOpen) {
+        showToast('選社時間已截止，無法送出修改。', 'error');
+        return;
+      }
+      if (selectedClubNames.length === 0) {
+        showToast('請至少選擇一個社團', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>儲存志願中...</span>`;
+
+      callBackend('submitPreferences', [userCredentials, selectedClubNames],
+        function(res) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i><span>送出並儲存志願序</span>`;
+
+          if (res.success) {
+            savedClubNames = [...selectedClubNames];
+            document.getElementById('lastUpdatedTime').textContent = res.lastUpdated;
+            document.getElementById('lastUpdatedBadge').classList.remove('hidden');
+            showToast(res.message, 'success');
+          } else {
+            showToast(res.message, 'error');
+          }
+        },
+        function(err) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i><span>送出並儲存志願序</span>`;
+          showToast('儲存時發生錯誤：' + err.message, 'error');
+        }
+      );
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
